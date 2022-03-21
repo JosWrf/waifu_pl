@@ -17,7 +17,7 @@ declaration    → funDecl
                | statement ;
 
 funDecl        → "desu" function ;
-varDecl        → "baka" IDENTIFIER ( "<-" expression )? (NEWLINE | EOF) ;
+varDecl        → "baka" IDENTIFIER ( "<-" expression )? NEWLINE ;
 ```
 
 [comment]: <> (after varDecl and statements instead of NEWLINE tokens i should probably also allow EOF tokens aswell.)
@@ -31,9 +31,9 @@ statement      → exprStmt
                | whileStmt
                | block ;
 
-exprStmt       → expression (NEWLINE | EOF);
+exprStmt       → expression NEWLINE;
 ifStmt         → "nani" "(" expression ")" block
-                 ( "daijobu" statement )? ;
+                 ( "daijobu" block )? ;
 returnStmt     → "shinu" expression? "NEWLINE" ;
 whileStmt      → "yandere" "(" expression ")" block ;
 block          → ":" NEWLINE INDENT declaration* DEDENT;

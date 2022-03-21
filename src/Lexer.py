@@ -121,8 +121,16 @@ class Lexer:
         while not self.is_eof():
             self.start_pos = self.curr_pos
             self._get_token()
+        self._close_last_block()
         self._add_token(TokenType.EOF)
         return self.tokens
+
+    def _close_last_block(self) -> None:
+        """This dedents the last block in the file. So the position of the
+        cursor after the last newline does not matter."""
+        while self.indent_stack:
+            self._add_token(TokenType.DEDENT, self.indent_pos)
+            self.indent_pos = self.indent_stack.pop()
 
     def _add_token(self, type: TokenType, value: Any = None) -> None:
         self.tokens.append(Token(value, self.line, type))
@@ -297,11 +305,3 @@ class Lexer:
             self._add_token(Lexer.keywords.get(identifier))
         else:
             self._add_token(TokenType.IDENTIFIER, identifier)
-
-
-if __name__ == "__main__":
-    f = ""
-    with open(r"C:\Users\sepp4\Desktop\waifu\src\test.txt", "r") as of:
-        f = of.read()
-    lexer = Lexer(f)
-    print(lexer.get_tokens())
