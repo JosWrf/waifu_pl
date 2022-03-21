@@ -90,6 +90,17 @@ class Lexer:
         "yandere": TokenType.WHILE,
     }
 
+    simple_tokens = {
+        "(": TokenType.OP_PAR,
+        ")": TokenType.CL_PAR,
+        "+": TokenType.PLUS,
+        "-": TokenType.MINUS,
+        "*": TokenType.TIMES,
+        "/": TokenType.DIVIDE,
+        ".": TokenType.DOT,
+        "=": TokenType.EQUAL,
+    }
+
     def __init__(self, text: str) -> None:
         self.start_pos = 0  # the position of the buffer before testing any automaton
         self.curr_pos = (
@@ -101,6 +112,7 @@ class Lexer:
         self.tokens = []
         self.indent_pos = 0
         self.indent_stack = []
+        self.empty_line = True
 
     def is_eof(self) -> bool:
         return self.curr_pos >= len(self.text)
@@ -119,22 +131,9 @@ class Lexer:
         current = self._advance()
         if current.isidentifier():
             self._handle_identifier()
-        elif current == "(":
-            self._add_token(TokenType.OP_PAR)
-        elif current == ")":
-            self._add_token(TokenType.CL_PAR)
-        elif current == "+":
-            self._add_token(TokenType.PLUS)
-        elif current == "-":
-            self._add_token(TokenType.MINUS)
-        elif current == "/":
-            self._add_token(TokenType.DIVIDE)
-        elif current == "*":
-            self._add_token(TokenType.TIMES)
-        elif current == ".":
-            self._add_token(TokenType.DOT)
-        elif current == "=":
-            self._add_token(TokenType.EQUAL)
+            self.empty_line = False
+        elif self._handle_simple_tokens(current):
+            return
         elif current == "<":
             self._add_token(
                 TokenType.ASSIGNMENT
@@ -143,19 +142,24 @@ class Lexer:
                 if self._match("=")
                 else TokenType.LESS
             )
+            self.empty_line = False
         elif current == ">":
             self._add_token(
                 TokenType.GREATER_EQ if self._match("=") else TokenType.GREATER
             )
+            self.empty_line = False
         elif current == "!":
             if self._match("=", True):
                 self._add_token(TokenType.UNEQUAL)
+            self.empty_line = False
         elif current == "#":
-            self._handle_comments(self)
+            self._handle_comments()
         elif current == '"':
             self._handle_string()
+            self.empty_line = False
         elif self._is_digit(current):
             self._handle_number()
+            self.empty_line = False
         elif current == ":":
             self._handle_block_creation()
         elif current == "\n":
@@ -166,7 +170,7 @@ class Lexer:
         # tried all finite automatons but none worked.
         else:
             # TODO: Add error handling here
-            pass
+            print("Tried all automatons. None worked.")
 
     def _advance(self) -> str:
         self.curr_pos += 1
@@ -183,8 +187,15 @@ class Lexer:
     def _peek(self) -> str:
         return self.text[self.curr_pos]
 
+    def _handle_simple_tokens(self, char: str) -> bool:
+        if self.simple_tokens.get(char, False):
+            self._add_token(self.simple_tokens.get(char))
+            self.empty_line = False
+            return True
+        return False
+
     def _handle_comments(self) -> None:
-        while not self.is_eof() or self._peek() != "\n":
+        while not self.is_eof() and self._peek() != "\n":
             self._advance()
 
     def _handle_string(self) -> None:
@@ -193,7 +204,8 @@ class Lexer:
             self._advance()
 
         if self.is_eof():
-            pass  # TODO: Add error handling here
+            print("Non terminated string.")
+            # TODO: Add error handling here
         else:
             self._advance()
             self._add_token(
@@ -226,12 +238,13 @@ class Lexer:
             self._advance()
 
     def _handle_block_creation(self) -> None:
-        # The "\n" refers to the end of a logical line
         self._add_token(TokenType.COLON)
         if not self.is_eof() and self._peek() == "\n":
             self._add_token(TokenType.NEWLINE)
             self._increment_line_counter()
             self._advance()
+            self.empty_line = True
+            # Could also change spaces to be a string an then compare it to another one
             spaces = self._get_num_spaces()
             if spaces > self.indent_pos:
                 self.indent_stack.append(self.indent_pos)
@@ -241,7 +254,8 @@ class Lexer:
                 pass  # TODO: Add error handling "more spaces in after block required"
 
         else:
-            pass  # TODO: Add error handling as "\n" must follow ":"
+            print(f"Newline char must follow block operator {':'}.")
+            # TODO: Add error handling as "\n" must follow ":"
 
     def _get_num_spaces(self) -> int:
         spaces = 0
@@ -251,19 +265,24 @@ class Lexer:
         return spaces
 
     def _handle_block(self) -> None:
-        self._add_token(TokenType.NEWLINE)
-        self._increment_line_counter()
+        if not self.empty_line:
+            self._add_token(TokenType.NEWLINE)
+        self.line += 1
         spaces = self._get_num_spaces()
+        self.empty_line = True
         if spaces == self.indent_pos:  # Same block
-            pass
+            self.empty_line = True
         elif spaces < self.indent_pos:  # Delete block(s)
-            while spaces < self.indent_pos:
+            while (
+                spaces < self.indent_pos
+            ):  # comments and empty lines must have same intendation as block level
+                self._add_token(TokenType.DEDENT, self.indent_pos)
                 self.indent_pos = (
                     0 if not self.indent_stack else self.indent_stack.pop()
                 )
-                self._add_token(TokenType.DEDENT, self.indent_pos)
         else:
-            pass  # TODO: Add error handling can't indent without ':'
+            print(f"Can't indent without {':'}.")
+            # TODO: Add error handling can't indent without ':'
 
     def _handle_identifier(self) -> None:
         while (
@@ -278,3 +297,11 @@ class Lexer:
             self._add_token(Lexer.keywords.get(identifier))
         else:
             self._add_token(TokenType.IDENTIFIER, identifier)
+
+
+if __name__ == "__main__":
+    f = ""
+    with open(r"C:\Users\sepp4\Desktop\waifu\src\test.txt", "r") as of:
+        f = of.read()
+    lexer = Lexer(f)
+    print(lexer.get_tokens())
