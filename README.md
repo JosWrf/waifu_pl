@@ -1,7 +1,7 @@
 # Project description
 
-The waifu language will be a dynamically typed toy programming language used to learn more about the internals of an interpreter.
-A current version of the grammar is given below.
+> The waifu language will be a dynamically typed toy programming language used to learn more about the internals of an interpreter.
+> A current version of the grammar is given below.
 
 ## Syntax Grammar
 
@@ -58,15 +58,22 @@ unary          → ( "not" | "-" ) unary | call ;
 call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 primary        → "true" | "false" | "baito"
                | NUMBER | STRING | IDENTIFIER | "(" expression ");
+
+function       → IDENTIFIER "(" parameters? ")" block;
+parameters     → IDENTIFIER "(" "," IDENTIFIER* ")";
+arguments      → expression "(" "," expression* ")";
 ```
 
-Keywords and their meaning in common programming languages:
-{
-nani : if statement;
-daijobu : else part of if statement;
-desu : Function/Method declaration;
-baka : Variable declaration;
-yandere : While loop;
-shinu : Return from function/method;
-baito : nil or None or null;
-}
+## Language specifics
+
+**Keywords and their meaning in other programming languages:**
+
+| waifu keyword |           meaning           |
+| ------------- | :-------------------------: |
+| nani          |        if statement         |
+| daijobu       |  else part of if statement  |
+| desu          | function/method declaration |
+| baka          |    variable declaration     |
+| yandere       |         while loop          |
+| shinu         |      return statement       |
+| baito         |         null value          |
