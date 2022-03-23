@@ -2,6 +2,8 @@ import enum
 from enum import Enum
 from typing import Any, List
 
+from src.error_handler import ErrorHandler
+
 
 class TokenType(Enum):
     PLUS = enum.auto()
@@ -99,9 +101,10 @@ class Lexer:
         "/": TokenType.DIVIDE,
         ".": TokenType.DOT,
         "=": TokenType.EQUAL,
+        ":": TokenType.COLON,
     }
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, error_handler: ErrorHandler) -> None:
         self.start_pos = 0  # the position of the buffer before testing any automaton
         self.curr_pos = (
             0  # the position of the buffer after starting to test an automaton
@@ -113,6 +116,11 @@ class Lexer:
         self.indent_pos = 0
         self.indent_stack = []
         self.empty_line = True
+        self.error_handler = error_handler
+
+    def _lexical_error(self, line: int, message: str) -> None:
+        message = f"Line[{line}]: " + message
+        self.error_handler.error(message)
 
     def is_eof(self) -> bool:
         return self.curr_pos >= len(self.text)
@@ -168,8 +176,6 @@ class Lexer:
         elif self._is_digit(current):
             self._handle_number()
             self.empty_line = False
-        elif current == ":":
-            self._handle_block_creation()
         elif current == "\n":
             self._handle_block()
         elif current.isspace():
@@ -177,17 +183,18 @@ class Lexer:
 
         # tried all finite automatons but none worked.
         else:
-            # TODO: Add error handling here
-            print("Tried all automatons. None worked.")
+            message = f"Tried all automatons but none could match current charater: {current}."
+            self._lexical_error(self.line, message)
 
     def _advance(self) -> str:
         self.curr_pos += 1
         return self.text[self.curr_pos - 1]
 
     def _match(self, char: str, mustMatch: bool = False) -> bool:
-        if self.is_eof() or self.text[self.curr_pos] != char:
+        if self.is_eof() or self._peek() != char:
             if mustMatch:
-                pass  # TODO: Add error handling code
+                message = f"Expected {char} but got {self._peek()}."
+                self._lexical_error(self.line, message)
             return False
         self.curr_pos += 1
         return True
@@ -212,8 +219,8 @@ class Lexer:
             self._advance()
 
         if self.is_eof():
-            print("Non terminated string.")
-            # TODO: Add error handling here
+            message = f"Unterminated string."
+            self._lexical_error(self.line, message)
         else:
             self._advance()
             self._add_token(
@@ -245,26 +252,6 @@ class Lexer:
         while not self.is_eof() and self._peek().isspace() and self._peek() != "\n":
             self._advance()
 
-    def _handle_block_creation(self) -> None:
-        self._add_token(TokenType.COLON)
-        if not self.is_eof() and self._peek() == "\n":
-            self._add_token(TokenType.NEWLINE)
-            self._increment_line_counter()
-            self._advance()
-            self.empty_line = True
-            # Could also change spaces to be a string an then compare it to another one
-            spaces = self._get_num_spaces()
-            if spaces > self.indent_pos:
-                self.indent_stack.append(self.indent_pos)
-                self.indent_pos = spaces
-                self._add_token(TokenType.INDENT, self.indent_pos)
-            else:
-                pass  # TODO: Add error handling "more spaces in after block required"
-
-        else:
-            print(f"Newline char must follow block operator {':'}.")
-            # TODO: Add error handling as "\n" must follow ":"
-
     def _get_num_spaces(self) -> int:
         spaces = 0
         while not self.is_eof() and self._peek() == " ":
@@ -273,24 +260,61 @@ class Lexer:
         return spaces
 
     def _handle_block(self) -> None:
+        """Takes care of newline char of current logical line."""
         if not self.empty_line:
             self._add_token(TokenType.NEWLINE)
         self.line += 1
-        spaces = self._get_num_spaces()
         self.empty_line = True
-        if spaces == self.indent_pos:  # Same block
-            self.empty_line = True
-        elif spaces < self.indent_pos:  # Delete block(s)
-            while (
-                spaces < self.indent_pos
-            ):  # comments and empty lines must have same intendation as block level
+        spaces = self._get_num_spaces()
+        # empty lines and comments do not affect blocks
+        if self.is_eof() or self._peek() == "#" or self._peek().isspace():
+            return
+        self._increased_block_indent(spaces)
+        self._same_block_indent(spaces)
+        self._less_block_indent(spaces)
+
+    def _increased_block_indent(self, spaces: int) -> None:
+        # Could also change spaces to be a string an then compare it to another one
+        if spaces <= self.indent_pos:
+            return
+        try:
+            if self.tokens[-2].type != TokenType.COLON:
+                raise Exception()
+            self.indent_stack.append(self.indent_pos)
+            self.indent_pos = spaces
+            self._add_token(TokenType.INDENT, self.indent_pos)
+        except Exception as e:
+            message = f"Can not indent without block creation."
+            self._lexical_error(self.line, message)
+
+    def _same_block_indent(self, spaces: int) -> None:
+        if spaces != self.indent_pos:
+            return
+        try:
+            if self.tokens[-2].type != TokenType.COLON:
+                pass
+            else:
+                message = f"Expect indentation after block creation."
+                self._lexical_error(self.line, message)
+
+        except Exception as e:
+            pass
+
+    def _less_block_indent(self, spaces: int) -> None:
+        if spaces >= self.indent_pos:
+            return
+        try:
+            if self.tokens[-2].type == TokenType.COLON:
+                message = f"Can not dedent after block creation."
+                self._lexical_error(self.line, message)
+            while spaces < self.indent_pos:
                 self._add_token(TokenType.DEDENT, self.indent_pos)
                 self.indent_pos = (
                     0 if not self.indent_stack else self.indent_stack.pop()
                 )
-        else:
-            print(f"Can't indent without {':'}.")
-            # TODO: Add error handling can't indent without ':'
+
+        except Exception as e:
+            pass
 
     def _handle_identifier(self) -> None:
         while (
