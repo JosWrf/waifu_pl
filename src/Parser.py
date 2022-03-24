@@ -1,7 +1,10 @@
+import importlib
 from abc import ABC, abstractmethod
-from typing import List
-from src.Lexer import Token, TokenType
+from typing import Callable, Collection, List
+
+from src.ast import Expr, GroupingExpr, Literal, UnaryExpr
 from src.error_handler import ErrorHandler
+from src.Lexer import Token, TokenType
 
 
 class UnexpectedTokenException(Exception):
@@ -42,6 +45,22 @@ class Parser(ABC):
         pass
 
 
+def binary_node(name: str, *token_types: Collection[TokenType]):
+    module = importlib.import_module("src.ast")
+
+    def binary_node_creator(f: Callable):
+        def binary_wrapper(parser: Parser):
+            left = f(parser)
+            while parser.lookahead.type in token_types:
+                operator = parser.advance()
+                left = getattr(module, name)(left, operator, f(parser))
+            return left
+
+        return binary_wrapper
+
+    return binary_node_creator
+
+
 class RecursiveDescentParser(Parser):
     def __init__(self, tokens: List[Token], error_handler: ErrorHandler) -> None:
         super().__init__(tokens)
@@ -57,37 +76,68 @@ class RecursiveDescentParser(Parser):
         pass
 
     def parse(self) -> None:
-        self._expression()
+        return self._expression()
 
-    def _expression(self) -> None:
-        self._assignment()
+    def _expression(self) -> Expr:
+        return self._assignment()
 
-    def _assignment(self) -> None:
-        pass
+    def _assignment(self) -> Expr:
+        return self._logic_or()
 
-    def _logic_or(self) -> None:
-        pass
+    @binary_node("LogicalExpr", TokenType.OR)
+    def _logic_or(self) -> Expr:
+        return self._logic_and()
 
-    def _logic_and(self) -> None:
-        pass
+    @binary_node("LogicalExpr", TokenType.AND)
+    def _logic_and(self) -> Expr:
+        return self._equality()
 
-    def _equality(self) -> None:
-        pass
+    @binary_node("BinaryExpr", TokenType.UNEQUAL, TokenType.EQUAL)
+    def _equality(self) -> Expr:
+        return self._comparison()
 
-    def _comparison(self) -> None:
-        pass
+    @binary_node(
+        "BinaryExpr",
+        TokenType.LESS,
+        TokenType.LESS_EQ,
+        TokenType.GREATER,
+        TokenType.GREATER_EQ,
+    )
+    def _comparison(self) -> Expr:
+        return self._term()
 
-    def _term(self) -> None:
-        pass
+    @binary_node("BinaryExpr", TokenType.PLUS, TokenType.MINUS)
+    def _term(self) -> Expr:
+        return self._factor()
 
-    def _factor(self) -> None:
-        pass
+    @binary_node("BinaryExpr", TokenType.TIMES, TokenType.DIVIDE)
+    def _factor(self) -> Expr:
+        return self._unary()
 
-    def _unary(self) -> None:
-        pass
+    def _unary(self) -> Expr:
+        if self.is_type_in(TokenType.NOT, TokenType.MINUS):
+            operator = self.advance()
+            return UnaryExpr(operator, self._unary())
+        return self._call()
 
-    def _call(self) -> None:
-        pass
+    def _call(self) -> Expr:
+        return self._primary()
 
-    def _primary(self) -> None:
-        pass
+    def _primary(self) -> Expr:
+        if self.is_type_in(TokenType.NUMBER, TokenType.STRING):
+            return Literal(self.advance().value)
+        elif self.is_type_in(TokenType.NIL):
+            self.consume()
+            return Literal(None)
+        elif self.is_type_in(TokenType.TRUE):
+            self.consume()
+            return Literal(True)
+        elif self.is_type_in(TokenType.FALSE):
+            self.consume()
+            return Literal(False)
+        elif self.is_type_in(TokenType.OP_PAR):
+            self.consume()
+            expr = self._expression()
+            self.match(TokenType.CL_PAR)
+            return GroupingExpr(expr)
+        # TODO: ADD errorhandling when nothing matches and when ) not found.
