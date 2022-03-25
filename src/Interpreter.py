@@ -1,5 +1,6 @@
 from typing import Any
 from src.Lexer import TokenType
+from src.ast import Expr
 from src.visitor import Visitor
 
 
@@ -11,7 +12,7 @@ class Interpreter(Visitor):
     def interpret(self, node: Any) -> Any:
         return self.visit(node)
 
-    def visit_binaryexpr(self, node: Any) -> Any:
+    def visit_binaryexpr(self, node: Expr) -> Any:
         # TODO: Add casts and conversions that interface between python and waifu
         left = self.visit(node.left)
         right = self.visit(node.right)
@@ -36,7 +37,7 @@ class Interpreter(Visitor):
         if node.operator.type == TokenType.UNEQUAL:
             return left != right
 
-    def visit_logicalexpr(self, node: Any) -> Any:
+    def visit_logicalexpr(self, node: Expr) -> Any:
         # TODO: Add casts and conversions
         left = self.visit(node.left)
         if node.operator == TokenType.OR:
@@ -48,7 +49,7 @@ class Interpreter(Visitor):
 
         return self.visit(node.right)
 
-    def visit_unaryexpr(self, node: Any) -> Any:
+    def visit_unaryexpr(self, node: Expr) -> Any:
         # TODO: Add casts and conversions
         operand = self.visit(node.right)
         if node.operator.type == TokenType.MINUS:
@@ -56,7 +57,7 @@ class Interpreter(Visitor):
         if node.operator.type == TokenType.NOT:
             return not operand
 
-    def visit_groupingexpr(self, node: Any) -> Any:
+    def visit_groupingexpr(self, node: Expr) -> Any:
         return self.visit(node.expression)
 
     def visit_literal(self, node: Any) -> Any:
