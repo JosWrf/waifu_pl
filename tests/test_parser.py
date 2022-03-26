@@ -4,25 +4,25 @@ from unittest.mock import create_autospec
 import pytest
 from src.Lexer import Lexer, Token, TokenType
 from src.Parser import RecursiveDescentParser
-from src.ast import BinaryExpr, Expr, GroupingExpr, Literal, LogicalExpr
+from src.ast import BinaryExpr, Expr, GroupingExpr, Literal, LogicalExpr, UnaryExpr
 from src.error_handler import ErrorHandler
 from src.visitor import Visitor
 
 
 class ASTNodeComparator(Visitor):
-    def visit_binaryexpr(self, node: Expr) -> Tuple[Expr, Expr]:
+    def visit_binaryexpr(self, node: BinaryExpr) -> Tuple[Expr, Expr]:
         return (node.left, node.right)
 
-    def visit_unaryexpr(self, node: Expr) -> Tuple[Expr]:
+    def visit_unaryexpr(self, node: UnaryExpr) -> Tuple[Expr]:
         return (node.expression,)
 
-    def visit_logicalexpr(self, node: Expr) -> Tuple[Expr, Expr]:
+    def visit_logicalexpr(self, node: LogicalExpr) -> Tuple[Expr, Expr]:
         return (node.left, node.right)
 
-    def visit_literal(self, node: Expr) -> Tuple:
+    def visit_literal(self, node: Literal) -> Tuple[()]:
         return ()
 
-    def visit_groupingexpr(self, node: Expr) -> Tuple[Expr]:
+    def visit_groupingexpr(self, node: GroupingExpr) -> Tuple[Expr]:
         return (node.expression,)
 
     def compare_nodes(self, created_node: Any, expected_node: Any) -> bool:

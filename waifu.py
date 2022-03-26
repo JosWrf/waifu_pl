@@ -27,7 +27,11 @@ class Waifu:
 
     def update(self) -> None:
         """Called from the error_handler subject error method."""
-        self.err = True
+        runtime_err = self.error_handler.runtime_err
+        if not runtime_err:
+            self.err = True
+        else:
+            sys.exit(-1)
 
 
 if __name__ == "__main__":
@@ -44,5 +48,5 @@ if __name__ == "__main__":
     ast = parser.parse()
     if waifu.err:
         sys.exit(-1)
-    interpreter = Interpreter()
+    interpreter = Interpreter(waifu.error_handler)
     print(interpreter.interpret(ast))
