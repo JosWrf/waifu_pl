@@ -2,7 +2,18 @@ import importlib
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Collection, List
 
-from src.ast import Expr, GroupingExpr, Literal, UnaryExpr
+from src.ast import (
+    Expr,
+    ExprStmt,
+    GroupingExpr,
+    Literal,
+    Stmt,
+    Stmts,
+    UnaryExpr,
+    VarAccess,
+    VarDecl,
+)
+from src.environment import Environment
 from src.error_handler import ErrorHandler
 from src.Lexer import Token, TokenType
 
@@ -69,9 +80,12 @@ def binary_node(name: str, *token_types: Collection[TokenType]):
 
 
 class RecursiveDescentParser(Parser):
-    def __init__(self, tokens: List[Token], error_handler: ErrorHandler) -> None:
+    def __init__(
+        self, tokens: List[Token], error_handler: ErrorHandler, environment: Environment
+    ) -> None:
         super().__init__(tokens)
         self.error_handler = error_handler
+        self.environment = environment
 
     def _parse_error(self, message: str) -> None:
         message = f"Line[{self.lookahead.line}]: at {self.lookahead} " + message
@@ -82,7 +96,7 @@ class RecursiveDescentParser(Parser):
     def _synchronize(self) -> None:
         """Synchronize at statement boundaries which in my case are newlines.
         Keywords starting off statements are also synchronization words."""
-        sync_token = self.consume()  # toss mismatched token
+        sync_token = self.advance()  # toss mismatched token
         while not self.is_eof():
             if sync_token.type == TokenType.NEWLINE:
                 return
@@ -97,13 +111,40 @@ class RecursiveDescentParser(Parser):
             sync_token = self.advance()
 
     def parse(self) -> Any:
-        # TODO: Change this when statements become a thing
-        if self.is_eof():
-            return
+        stmts = []
+        while not self.is_eof():
+            stmts.append(self._declaration())
+        return Stmts(stmts)
+
+    def _declaration(self) -> Stmt:
         try:
-            return self._expression()
+            if self.is_type_in(TokenType.LET):
+                return self._vardecl()
+            return self._statement()
         except UnexpectedTokenException as ue:
-            return None
+            self._synchronize()
+
+    def _vardecl(self) -> Stmt:
+        self.advance()  # Consume let Token
+        name = self.lookahead
+        self.match(TokenType.IDENTIFIER, "Expect an identifier after baka.")
+        expr = None
+        if self.is_type_in(TokenType.ASSIGNMENT):
+            self.advance()
+            expr = self._expression()
+        self.match(TokenType.NEWLINE, "Expect newline after variable declaration.")
+        # TODO: Try to make an entry for all declared variables and functions/classes
+        self.environment.define(name, None)
+        return VarDecl(name, expr)
+
+    def _statement(self) -> Stmt:
+        return self._expression_stmt()
+
+    def _expression_stmt(self) -> ExprStmt:
+        expr = self._expression()
+        message = "Expect newline character after statement."
+        self.match(TokenType.NEWLINE, message)
+        return ExprStmt(expr)
 
     def _expression(self) -> Expr:
         return self._assignment()
@@ -153,21 +194,23 @@ class RecursiveDescentParser(Parser):
     def _primary(self) -> Expr:
         if self.is_type_in(TokenType.NUMBER, TokenType.STRING):
             return Literal(self.advance().value)
-        elif self.is_type_in(TokenType.NIL):
+        if self.is_type_in(TokenType.NIL):
             self.consume()
             return Literal(None)
-        elif self.is_type_in(TokenType.TRUE):
+        if self.is_type_in(TokenType.TRUE):
             self.consume()
             return Literal(True)
-        elif self.is_type_in(TokenType.FALSE):
+        if self.is_type_in(TokenType.FALSE):
             self.consume()
             return Literal(False)
-        elif self.is_type_in(TokenType.OP_PAR):
+        if self.is_type_in(TokenType.OP_PAR):
             self.consume()
             expr = self._expression()
             self.match(
                 TokenType.CL_PAR, "Unclosed '('. Expected ')' after the expression."
             )
             return GroupingExpr(expr)
+        if self.is_type_in(TokenType.IDENTIFIER):
+            return VarAccess(self.advance())
 
         self._parse_error("Token can't be used in an expression.")

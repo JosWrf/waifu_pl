@@ -2,6 +2,7 @@ import sys
 from src.Interpreter import Interpreter
 from src.Lexer import Lexer
 from src.Parser import RecursiveDescentParser
+from src.environment import Environment
 from src.error_handler import ErrorHandler
 
 
@@ -44,9 +45,10 @@ if __name__ == "__main__":
     tokens = waifu.lexer.get_tokens()
     if waifu.err:
         sys.exit(-1)
-    parser = RecursiveDescentParser(tokens, error_handler)
+    environment = Environment(error_handler)
+    parser = RecursiveDescentParser(tokens, error_handler, environment)
     ast = parser.parse()
     if waifu.err:
         sys.exit(-1)
-    interpreter = Interpreter(waifu.error_handler)
-    print(interpreter.interpret(ast))
+    interpreter = Interpreter(error_handler, environment)
+    interpreter.interpret(ast)

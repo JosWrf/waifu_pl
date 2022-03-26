@@ -3,7 +3,7 @@ from typing import Any
 
 
 class Visitor(ABC):
-    def visit(self, node: Any) -> None:
+    def visit(self, node: Any) -> Any:
         method_name = f"visit_{type(node).__name__.lower()}"
         return getattr(self, method_name, self.generic_visit)(node)
 

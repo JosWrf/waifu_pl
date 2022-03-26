@@ -2,7 +2,7 @@ from jinja2 import StrictUndefined, Template
 
 template = """from abc import ABC
 from src.Lexer import Token
-from typing import Any
+from typing import Any, List
 
 {# Abstract Expression node class -#}
 class Expr(ABC):
@@ -35,8 +35,13 @@ nodes = {
         "GroupingExpr": [("expression", "Expr")],
         "Literal": [("value", "Any")],
         "LogicalExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
+        "VarAccess": [("name", "Token")],
     },
-    "Stmt": {},
+    "Stmt": {
+        "Stmts": [("stmts", "List[Stmt]")],
+        "ExprStmt": [("expression", "Expr")],
+        "VarDecl": [("name", "Token"), ("initializer", "Expr")],
+    },
 }
 
 if __name__ == "__main__":

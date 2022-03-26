@@ -4,7 +4,20 @@ from unittest.mock import create_autospec
 import pytest
 from src.Lexer import Lexer, Token, TokenType
 from src.Parser import RecursiveDescentParser
-from src.ast import BinaryExpr, Expr, GroupingExpr, Literal, LogicalExpr, UnaryExpr
+from src.ast import (
+    BinaryExpr,
+    Expr,
+    ExprStmt,
+    GroupingExpr,
+    Literal,
+    LogicalExpr,
+    Stmt,
+    Stmts,
+    UnaryExpr,
+    VarAccess,
+    VarDecl,
+)
+from src.environment import Environment
 from src.error_handler import ErrorHandler
 from src.visitor import Visitor
 
@@ -22,8 +35,20 @@ class ASTNodeComparator(Visitor):
     def visit_literal(self, node: Literal) -> Tuple[()]:
         return ()
 
+    def visit_varaccess(self, node: VarAccess) -> Tuple[()]:
+        return ()
+
     def visit_groupingexpr(self, node: GroupingExpr) -> Tuple[Expr]:
         return (node.expression,)
+
+    def visit_stmts(self, node: Stmts) -> List[Stmt]:
+        return node.stmts
+
+    def visit_exprstmt(self, node: ExprStmt) -> Tuple[Expr]:
+        return (node.expression,)
+
+    def visit_vardecl(self, node: VarDecl) -> Tuple[Expr]:
+        return (node.initializer,) if node.initializer else ()
 
     def compare_nodes(self, created_node: Any, expected_node: Any) -> bool:
         """The best way to compare would be to replace the if(type) line and replace
@@ -42,8 +67,8 @@ class ASTNodeComparator(Visitor):
     def _check_operator(self, node: Any, expected_node: Any) -> bool:
         """Check whether operators in binary and logical nodes are the same.
         Primary usage is to check whether operator precedence works as intended."""
-        op1 = getattr(node, "operator")
-        op2 = getattr(expected_node, "operator")
+        op1 = getattr(node, "operator", None)
+        op2 = getattr(expected_node, "operator", None)
         return op1.type == op2.type if op1 and op2 else True
 
 
@@ -51,17 +76,21 @@ class TestParser:
     def _setup(self, text: str) -> None:
         self.comparator = ASTNodeComparator()
         self.error_handler = create_autospec(ErrorHandler)
+        self.environment = create_autospec(Environment)
         self.lexer = Lexer(text, self.error_handler)
         self.parser = RecursiveDescentParser(
-            self.lexer.get_tokens(), self.error_handler
+            self.lexer.get_tokens(), self.error_handler, self.environment
         )
 
     def _setup_parser(self, tokens: List[Token]):
         self.error_handler = create_autospec(ErrorHandler)
-        self.parser = RecursiveDescentParser(tokens, self.error_handler)
+        self.environment = create_autospec(Environment)
+        self.parser = RecursiveDescentParser(
+            tokens, self.error_handler, self.environment
+        )
 
     @pytest.mark.parametrize(
-        "test_input", ["+10", "1=", "/", "(42 or 1", "34 and 21 or"]
+        "test_input", ["+10", "1=", "/", "(42 or 1", "34 and 21 or", "baka 42\n"]
     )
     def test_error_with_lexer(self, test_input):
         self._setup(test_input)
@@ -81,46 +110,101 @@ class TestParser:
         "test_input, expected",
         [
             (
-                "7.2/3",
-                BinaryExpr(
-                    Literal(None), Token(None, 0, TokenType.DIVIDE), Literal(None)
-                ),
+                "i \n",
+                Stmts([ExprStmt(VarAccess(Token(None, 0, TokenType.IDENTIFIER)))]),
             ),
             (
-                "(2+4) or 5",
-                LogicalExpr(
-                    GroupingExpr(
-                        BinaryExpr(
-                            Literal(None), Token(None, 0, TokenType.PLUS), Literal(None)
+                "7.2/3\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            BinaryExpr(
+                                Literal(None),
+                                Token(None, 0, TokenType.DIVIDE),
+                                Literal(None),
+                            )
                         )
-                    ),
-                    Token(None, 0, TokenType.OR),
-                    Literal(None),
+                    ]
                 ),
             ),
             (
-                "2*3 and 4",
-                LogicalExpr(
-                    BinaryExpr(
-                        Literal(None), Token(None, 0, TokenType.TIMES), Literal(None)
-                    ),
-                    Token(None, 0, TokenType.AND),
-                    Literal(None),
+                "(2+4) or 5\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            LogicalExpr(
+                                GroupingExpr(
+                                    BinaryExpr(
+                                        Literal(None),
+                                        Token(None, 0, TokenType.PLUS),
+                                        Literal(None),
+                                    )
+                                ),
+                                Token(None, 0, TokenType.OR),
+                                Literal(None),
+                            )
+                        )
+                    ]
                 ),
             ),
             (
-                "3-2/1",
-                BinaryExpr(
-                    Literal(None),
-                    Token(None, 0, TokenType.MINUS),
-                    BinaryExpr(
-                        Literal(None), Token(None, 0, TokenType.DIVIDE), Literal(None)
-                    ),
+                "2*3 and 4\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            LogicalExpr(
+                                BinaryExpr(
+                                    Literal(None),
+                                    Token(None, 0, TokenType.TIMES),
+                                    Literal(None),
+                                ),
+                                Token(None, 0, TokenType.AND),
+                                Literal(None),
+                            )
+                        )
+                    ]
+                ),
+            ),
+            (
+                "3-2/1\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            BinaryExpr(
+                                Literal(None),
+                                Token(None, 0, TokenType.MINUS),
+                                BinaryExpr(
+                                    Literal(None),
+                                    Token(None, 0, TokenType.DIVIDE),
+                                    Literal(None),
+                                ),
+                            )
+                        )
+                    ]
                 ),
             ),
         ],
     )
-    def test_expressions_with_lexer(self, test_input, expected):
+    def test_expression_stmt_with_lexer(self, test_input, expected):
+        self._setup(test_input)
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    @pytest.mark.parametrize(
+        "test_input, expected",
+        [
+            (
+                "baka i <- 42 \n",
+                Stmts([VarDecl(Token(None, 0, TokenType.IDENTIFIER), Literal(None))]),
+            ),
+            (
+                "baka fun \n",
+                Stmts([(VarDecl(Token(None, 0, TokenType.IDENTIFIER), None))]),
+            ),
+        ],
+    )
+    def test_variable_decl(self, test_input, expected):
         self._setup(test_input)
         nodes = self.parser.parse()
         assert not self.error_handler.error.called

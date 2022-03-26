@@ -1,6 +1,18 @@
 from typing import Any
 from src.Lexer import Token, TokenType
-from src.ast import BinaryExpr, Expr, GroupingExpr, Literal, LogicalExpr, UnaryExpr
+from src.ast import (
+    BinaryExpr,
+    Expr,
+    ExprStmt,
+    GroupingExpr,
+    Literal,
+    LogicalExpr,
+    Stmts,
+    UnaryExpr,
+    VarAccess,
+    VarDecl,
+)
+from src.environment import Environment
 from src.error_handler import ErrorHandler
 from src.visitor import Visitor
 
@@ -13,9 +25,10 @@ class RuntimeException(RuntimeError):
 
 
 class Interpreter(Visitor):
-    def __init__(self, error_handler: ErrorHandler) -> None:
+    def __init__(self, error_handler: ErrorHandler, environment: Environment) -> None:
         super().__init__()
         self.error_handler = error_handler
+        self.environment = environment
 
     def _boolean_eval(self, operand: Any) -> bool:
         """Implements evaluation of boolean expressions similar to lua."""
@@ -51,9 +64,22 @@ class Interpreter(Visitor):
 
     def interpret(self, node: Any) -> Any:
         try:
-            return self._make_waifuish(self.visit(node))
+            self.visit(node)
         except RuntimeException as re:
             self._report_runtime_err(re)
+
+    def visit_stmts(self, node: Stmts) -> None:
+        for stmt in node.stmts:
+            self.visit(stmt)
+
+    def visit_vardecl(self, node: VarDecl) -> None:
+        if node.initializer:
+            value = self.visit(node.initializer)
+            self.environment.set_value(node.name, value)
+
+    def visit_exprstmt(self, node: ExprStmt) -> None:
+        # TODO: replace later on when print() is a library function
+        print(self._make_waifuish(self.visit(node.expression)))
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
         left = self.visit(node.left)
@@ -116,6 +142,9 @@ class Interpreter(Visitor):
 
     def visit_literal(self, node: Literal) -> Any:
         return node.value
+
+    def visit_varaccess(self, node: VarAccess) -> Any:
+        return self.environment.get_value(node.name)
 
     def _make_waifuish(self, value: Any) -> str:
         """Converts python representation of a waifu value to the waifu representation."""

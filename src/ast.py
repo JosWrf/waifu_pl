@@ -1,6 +1,6 @@
 from abc import ABC
 from src.Lexer import Token
-from typing import Any
+from typing import Any, List
 
 
 class Expr(ABC):
@@ -37,5 +37,26 @@ class LogicalExpr(Expr):
         self.right = right
 
 
+class VarAccess(Expr):
+    def __init__(self, name: Token) -> None:
+        self.name = name
+
+
 class Stmt(ABC):
     pass
+
+
+class Stmts(Stmt):
+    def __init__(self, stmts: List[Stmt]) -> None:
+        self.stmts = stmts
+
+
+class ExprStmt(Stmt):
+    def __init__(self, expression: Expr) -> None:
+        self.expression = expression
+
+
+class VarDecl(Stmt):
+    def __init__(self, name: Token, initializer: Expr) -> None:
+        self.name = name
+        self.initializer = initializer
