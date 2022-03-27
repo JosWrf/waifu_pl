@@ -7,6 +7,12 @@ class Expr(ABC):
     pass
 
 
+class Assignment(Expr):
+    def __init__(self, name: Token, expression: Expr) -> None:
+        self.name = name
+        self.expression = expression
+
+
 class BinaryExpr(Expr):
     def __init__(self, left: Expr, operator: Token, right: Expr) -> None:
         self.left = left

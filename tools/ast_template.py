@@ -30,6 +30,7 @@ class {{stmt}}(Stmt):
 """
 nodes = {
     "Expr": {
+        "Assignment": [("name", "Token"), ("expression", "Expr")],
         "BinaryExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
         "UnaryExpr": [("operator", "Token"), ("right", "Expr")],
         "GroupingExpr": [("expression", "Expr")],

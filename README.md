@@ -17,7 +17,6 @@ declaration    → funDecl
                | statement ;
 
 funDecl        → "desu" function ;
-varDecl        → "baka" IDENTIFIER ( "<-" expression )? NEWLINE ;
 ```
 
 [comment]: <> (after varDecl and statements instead of NEWLINE tokens i should probably also allow EOF tokens aswell.)
@@ -27,25 +26,27 @@ varDecl        → "baka" IDENTIFIER ( "<-" expression )? NEWLINE ;
 ```ebnf
 statement      → exprStmt
                | ifStmt
+               | assignStmt
                | returnStmt
                | whileStmt
                | block ;
 
 exprStmt       → expression NEWLINE;
+assignStmt     → (call ".")? IDENTIFIER "<-" assign NEWLINE;
 ifStmt         → "nani" "(" expression ")" block
                  ( "daijobu" block )? ;
 returnStmt     → "shinu" expression? "NEWLINE" ;
 whileStmt      → "yandere" "(" expression ")" block ;
 block          → ":" NEWLINE INDENT declaration* DEDENT;
+
+assign         → (call ".")? IDENTIFIER "<-" assign;
+               | expression
 ```
 
 ### Expressions
 
 ```ebnf
-expression     → assignment ;
-
-assignment     → ( call "." )? IDENTIFIER "<-" assignment
-               | logic_or ;
+expression     → logic_or ;
 
 logic_or       → logic_and ( "or" logic_and )* ;
 logic_and      → equality ( "and" equality )* ;
