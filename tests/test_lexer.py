@@ -17,7 +17,6 @@ class TestLexer:
             (".", [TokenType.DOT, TokenType.EOF]),
             ("<=", [TokenType.LESS_EQ, TokenType.EOF]),
             ("(", [TokenType.OP_PAR, TokenType.EOF]),
-            ("baka", [TokenType.LET, TokenType.EOF]),
             ("1f", [TokenType.NUMBER, TokenType.IDENTIFIER, TokenType.EOF]),
         ],
     )

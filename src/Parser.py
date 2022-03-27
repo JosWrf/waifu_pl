@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Collection, List
 
 from src.ast import (
+    AssStmt,
+    Assign,
     Expr,
     ExprStmt,
     GroupingExpr,
@@ -11,15 +13,10 @@ from src.ast import (
     Stmts,
     UnaryExpr,
     VarAccess,
-    VarDecl,
 )
-from src.environment import Environment
 from src.error_handler import ErrorHandler
 from src.Lexer import Token, TokenType
-
-
-class UnexpectedTokenException(Exception):
-    pass
+from src.errors import UnexpectedTokenException
 
 
 class Parser(ABC):
@@ -80,17 +77,15 @@ def binary_node(name: str, *token_types: Collection[TokenType]):
 
 
 class RecursiveDescentParser(Parser):
-    def __init__(
-        self, tokens: List[Token], error_handler: ErrorHandler, environment: Environment
-    ) -> None:
+    def __init__(self, tokens: List[Token], error_handler: ErrorHandler) -> None:
         super().__init__(tokens)
         self.error_handler = error_handler
-        self.environment = environment
 
-    def _parse_error(self, message: str) -> None:
+    def _parse_error(self, message: str, throw: bool = True) -> None:
         message = f"Line[{self.lookahead.line}]: at {self.lookahead} " + message
         self.error_handler.error(message)
-        raise UnexpectedTokenException()
+        if throw:
+            raise UnexpectedTokenException()
 
     # TODO: Add support for error recovery
     def _synchronize(self) -> None:
@@ -101,7 +96,6 @@ class RecursiveDescentParser(Parser):
             if sync_token.type == TokenType.NEWLINE:
                 return
             elif self.is_type_in(
-                TokenType.LET,
                 TokenType.DEF,
                 TokenType.WHILE,
                 TokenType.IF,
@@ -118,38 +112,58 @@ class RecursiveDescentParser(Parser):
 
     def _declaration(self) -> Stmt:
         try:
-            if self.is_type_in(TokenType.LET):
-                return self._vardecl()
             return self._statement()
         except UnexpectedTokenException as ue:
             self._synchronize()
 
-    def _vardecl(self) -> Stmt:
-        self.advance()  # Consume let Token
-        name = self.lookahead
-        self.match(TokenType.IDENTIFIER, "Expect an identifier after baka.")
-        expr = None
-        if self.is_type_in(TokenType.ASSIGNMENT):
-            self.advance()
-            expr = self._expression()
-        self.match(TokenType.NEWLINE, "Expect newline after variable declaration.")
-        # TODO: Try to make an entry for all declared variables and functions/classes
-        self.environment.define(name, None)
-        return VarDecl(name, expr)
-
     def _statement(self) -> Stmt:
-        return self._expression_stmt()
-
-    def _expression_stmt(self) -> ExprStmt:
+        # All valid assignment targets are expressions -> parsing
+        # expressions parses assignment targets
         expr = self._expression()
+        if self.is_type_in(TokenType.ASSIGNMENT):
+            return self._assign_stmt(expr)
+        return self._expression_stmt(expr)
+
+    def _block_stmt(self) -> List[Stmt]:
+        stmts = []
+        self.advance()  # Eat the colon
+        self.match(TokenType.NEWLINE, "Expect newline character after colon.")
+        self.match(TokenType.INDENT, "Expect indent after block creation.")
+        while not self.is_type_in(TokenType.DEDENT, TokenType.EOF):
+            stmts.append(self._declaration())
+
+        self.match(TokenType.DEDENT, "Expect dedent after block end.")
+        if not stmts:
+            self._parse_error("Block may not be empty.", False)
+        return stmts
+
+    def _expression_stmt(self, expr: Expr) -> ExprStmt:
         message = "Expect newline character after statement."
         self.match(TokenType.NEWLINE, message)
         return ExprStmt(expr)
 
-    def _expression(self) -> Expr:
-        return self._assignment()
+    def _assign_stmt(self, expr) -> AssStmt:
+        if type(expr) != VarAccess:
+            self._parse_error("Can't assign to this left hand side.", False)
+        name = self.tokens[self.index - 1]
+        self.advance()
+        ass_stmt = AssStmt(name, self._assign())
+        message = "Expect newline character after assignment."
+        self.match(TokenType.NEWLINE, message)
+        # TODO: Try to make an entry for all defined variables, functions and classes
+        return ass_stmt
 
-    def _assignment(self) -> Expr:
+    def _assign(self) -> Expr:
+        expr = self._expression()
+        if self.is_type_in(TokenType.ASSIGNMENT):
+            if type(expr) != VarAccess:
+                self._parse_error("Cant't assign to this left hand side.", False)
+            name = self.tokens[self.index - 1]
+            self.advance()
+            expr = Assign(name, self._assign())
+        return expr
+
+    def _expression(self) -> Expr:
         return self._logic_or()
 
     @binary_node("LogicalExpr", TokenType.OR)

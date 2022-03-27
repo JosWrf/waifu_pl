@@ -1,7 +1,10 @@
 from typing import Any
 from src.Lexer import Token, TokenType
 from src.ast import (
+    AssStmt,
+    Assign,
     BinaryExpr,
+    BlockStmt,
     Expr,
     ExprStmt,
     GroupingExpr,
@@ -10,25 +13,18 @@ from src.ast import (
     Stmts,
     UnaryExpr,
     VarAccess,
-    VarDecl,
 )
 from src.environment import Environment
 from src.error_handler import ErrorHandler
+from src.errors import RuntimeException
 from src.visitor import Visitor
 
 
-class RuntimeException(RuntimeError):
-    def __init__(self, token: Token, message: str) -> None:
-        super().__init__()
-        self.token = token
-        self.message = message
-
-
 class Interpreter(Visitor):
-    def __init__(self, error_handler: ErrorHandler, environment: Environment) -> None:
+    def __init__(self, error_handler: ErrorHandler) -> None:
         super().__init__()
         self.error_handler = error_handler
-        self.environment = environment
+        self.environment = Environment(self.error_handler)
 
     def _boolean_eval(self, operand: Any) -> bool:
         """Implements evaluation of boolean expressions similar to lua."""
@@ -72,14 +68,28 @@ class Interpreter(Visitor):
         for stmt in node.stmts:
             self.visit(stmt)
 
-    def visit_vardecl(self, node: VarDecl) -> None:
-        if node.initializer:
-            value = self.visit(node.initializer)
-            self.environment.set_value(node.name, value)
+    def visit_blockstmt(self, node: BlockStmt) -> None:
+        # TODO: Implement this although it's only needed after conditional statements
+        outer_scope = self.environment
+        inner_scope = Environment(self.error_handler, outer_scope)
+        self.environment = inner_scope
+        for stmt in node.stmts:
+            self.visit(stmt)
+
+        self.environment = outer_scope
+
+    def visit_assstmt(self, node: AssStmt) -> None:
+        value = self.visit(node.expression)
+        self.environment.define(node.name, value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
         # TODO: replace later on when print() is a library function
         print(self._make_waifuish(self.visit(node.expression)))
+
+    def visit_assign(self, node: Assign) -> None:
+        value = self.visit(node.expression)
+        self.environment.define(node.name, value)
+        return value
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
         left = self.visit(node.left)

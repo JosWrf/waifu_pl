@@ -43,7 +43,6 @@ class TokenType(Enum):
     TRUE = enum.auto()
     FALSE = enum.auto()
     DEF = enum.auto()
-    LET = enum.auto()
     WHILE = enum.auto()
 
     EOF = enum.auto()
@@ -83,7 +82,6 @@ class Lexer:
         "not": TokenType.NOT,
         "nani": TokenType.IF,
         "daijobu": TokenType.ELSE,
-        "baka": TokenType.LET,
         "true": TokenType.TRUE,
         "false": TokenType.FALSE,
         "baito": TokenType.NIL,

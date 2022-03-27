@@ -7,7 +7,7 @@ class Expr(ABC):
     pass
 
 
-class Assignment(Expr):
+class Assign(Expr):
     def __init__(self, name: Token, expression: Expr) -> None:
         self.name = name
         self.expression = expression
@@ -57,12 +57,17 @@ class Stmts(Stmt):
         self.stmts = stmts
 
 
+class AssStmt(Stmt):
+    def __init__(self, name: Token, expression: Expr) -> None:
+        self.name = name
+        self.expression = expression
+
+
 class ExprStmt(Stmt):
     def __init__(self, expression: Expr) -> None:
         self.expression = expression
 
 
-class VarDecl(Stmt):
-    def __init__(self, name: Token, initializer: Expr) -> None:
-        self.name = name
-        self.initializer = initializer
+class BlockStmt(Stmt):
+    def __init__(self, stmts: List[Stmt]) -> None:
+        self.stmts = stmts

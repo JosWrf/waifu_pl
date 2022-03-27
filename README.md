@@ -28,8 +28,7 @@ statement      → exprStmt
                | ifStmt
                | assignStmt
                | returnStmt
-               | whileStmt
-               | block ;
+               | whileStmt;
 
 exprStmt       → expression NEWLINE;
 assignStmt     → (call ".")? IDENTIFIER "<-" assign NEWLINE;
@@ -37,7 +36,7 @@ ifStmt         → "nani" "(" expression ")" block
                  ( "daijobu" block )? ;
 returnStmt     → "shinu" expression? "NEWLINE" ;
 whileStmt      → "yandere" "(" expression ")" block ;
-block          → ":" NEWLINE INDENT declaration* DEDENT;
+block          → ":" NEWLINE INDENT declaration+ DEDENT;
 
 assign         → (call ".")? IDENTIFIER "<-" assign;
                | expression

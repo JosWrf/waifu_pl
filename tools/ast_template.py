@@ -30,7 +30,7 @@ class {{stmt}}(Stmt):
 """
 nodes = {
     "Expr": {
-        "Assignment": [("name", "Token"), ("expression", "Expr")],
+        "Assign": [("name", "Token"), ("expression", "Expr")],
         "BinaryExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
         "UnaryExpr": [("operator", "Token"), ("right", "Expr")],
         "GroupingExpr": [("expression", "Expr")],
@@ -40,8 +40,9 @@ nodes = {
     },
     "Stmt": {
         "Stmts": [("stmts", "List[Stmt]")],
+        "AssStmt": [("name", "Token"), ("expression", "Expr")],
         "ExprStmt": [("expression", "Expr")],
-        "VarDecl": [("name", "Token"), ("initializer", "Expr")],
+        "BlockStmt": [("stmts", "List[Stmt]")],
     },
 }
 
