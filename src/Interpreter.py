@@ -5,18 +5,22 @@ from src.ast import (
     Assign,
     BinaryExpr,
     BlockStmt,
+    BreakStmt,
+    ContinueStmt,
     Expr,
     ExprStmt,
     GroupingExpr,
+    IfStmt,
     Literal,
     LogicalExpr,
     Stmts,
     UnaryExpr,
     VarAccess,
+    WhileStmt,
 )
 from src.environment import Environment
 from src.error_handler import ErrorHandler
-from src.errors import RuntimeException
+from src.errors import BreakException, ContinueException, RuntimeException
 from src.visitor import Visitor
 
 
@@ -68,8 +72,29 @@ class Interpreter(Visitor):
         for stmt in node.stmts:
             self.visit(stmt)
 
+    def visit_breakstmt(self, node: BreakStmt) -> None:
+        raise BreakException()
+
+    def visit_continuestmt(self, node: ContinueStmt) -> None:
+        raise ContinueException()
+
+    def visit_whilestmt(self, node: WhileStmt) -> None:
+        try:
+            while self._boolean_eval(self.visit(node.cond)):
+                try:
+                    self.visit(node.body)
+                except ContinueException:
+                    pass
+        except BreakException:
+            pass
+
+    def visit_ifstmt(self, node: IfStmt) -> None:
+        if self._boolean_eval(self.visit(node.cond)):
+            self.visit(node.then)
+        elif node.other:
+            self.visit(node.other)
+
     def visit_blockstmt(self, node: BlockStmt) -> None:
-        # TODO: Implement this although it's only needed after conditional statements
         outer_scope = self.environment
         inner_scope = Environment(self.error_handler, outer_scope)
         self.environment = inner_scope
@@ -80,7 +105,10 @@ class Interpreter(Visitor):
 
     def visit_assstmt(self, node: AssStmt) -> None:
         value = self.visit(node.expression)
-        self.environment.define(node.name, value)
+        if node.new_var:
+            self.environment.define(node.name, value)
+        else:
+            self.environment.assign(node.name, value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
         # TODO: replace later on when print() is a library function
@@ -88,7 +116,10 @@ class Interpreter(Visitor):
 
     def visit_assign(self, node: Assign) -> None:
         value = self.visit(node.expression)
-        self.environment.define(node.name, value)
+        if node.new_var:
+            self.environment.define(node.name, value)
+        else:
+            self.environment.assign(node.name, value)
         return value
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
@@ -128,13 +159,12 @@ class Interpreter(Visitor):
             return not self._equality_eval(left, right)
 
     def visit_logicalexpr(self, node: LogicalExpr) -> Any:
-        # TODO: Add casts and conversions
         left = self.visit(node.left)
         if node.operator == TokenType.OR:
-            if left:
+            if self._boolean_eval(left):
                 return left
         else:
-            if not left:
+            if not self._boolean_eval(left):
                 return left
 
         return self.visit(node.right)

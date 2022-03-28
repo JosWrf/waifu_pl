@@ -16,8 +16,28 @@ class Environment:
     def define(self, name: Token, value: Any) -> None:
         self.bindings[name.value] = value
 
+    def assign(self, name: Token, value: Any) -> None:
+        if not self._contains_name(name):
+            self.define(name, value)
+        else:
+            self._assign_outer(name, value)
+
+    def _assign_outer(self, name: Token, value: Any) -> None:
+        if name.value in self.bindings:
+            self.bindings[name.value] = value
+            return
+        return self.outer.assign(name, value)
+
+    def _contains_name(self, name: Token) -> bool:
+        if name.value in self.bindings:
+            return True
+        if self.outer:
+            return self.outer._contains_name(name)
+        else:
+            return False
+
     def get_value(self, name: Token) -> Any:
-        if not self.bindings.get(name.value, False) is False:
+        if name.value in self.bindings:
             return self.bindings[name.value]
 
         if self.outer:

@@ -31,11 +31,13 @@ statement      → exprStmt
                | whileStmt;
 
 exprStmt       → expression NEWLINE;
-assignStmt     → (call ".")? IDENTIFIER "<-" assign NEWLINE;
-ifStmt         → "nani" "(" expression ")" block
+assignStmt     → ("baka")? (call ".")? IDENTIFIER "<-" assign NEWLINE;
+ifStmt         → "nani" expression block
                  ( "daijobu" block )? ;
 returnStmt     → "shinu" expression? "NEWLINE" ;
-whileStmt      → "yandere" "(" expression ")" block ;
+breakStmt      → "yamero" "NEWLINE" ;
+continueStmt   → "kowai" "NEWLINE" ;
+whileStmt      → "yandere" expression block ;
 block          → ":" NEWLINE INDENT declaration+ DEDENT;
 
 assign         → (call ".")? IDENTIFIER "<-" assign;
@@ -68,12 +70,17 @@ arguments      → expression "(" "," expression* ")";
 
 **Keywords and their meaning in other programming languages:**
 
-| waifu keyword |           meaning           |
-| ------------- | :-------------------------: |
-| nani          |        if statement         |
-| daijobu       |  else part of if statement  |
-| desu          | function/method declaration |
-| baka          |    variable declaration     |
-| yandere       |         while loop          |
-| shinu         |      return statement       |
-| baito         |         null value          |
+| waifu keyword |                meaning                 |
+| ------------- | :------------------------------------: |
+| nani          |              if statement              |
+| daijobu       |       else part of if statement        |
+| desu          |      function/method declaration       |
+| yandere       |               while loop               |
+| shinu         |            return statement            |
+| baito         |               null value               |
+| baka          | make new local variable when assigning |
+| yamero        |            break statement             |
+| kowai         |           continue statement           |
+
+> Use baka to declare a new local variable otherwise an assignment will assign to a variable in the surrounding scope or define one
+> in the current scope if none with that name could be found.

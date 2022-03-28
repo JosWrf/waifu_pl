@@ -5,14 +5,19 @@ from typing import Any, Callable, Collection, List
 from src.ast import (
     AssStmt,
     Assign,
+    BlockStmt,
+    BreakStmt,
+    ContinueStmt,
     Expr,
     ExprStmt,
     GroupingExpr,
+    IfStmt,
     Literal,
     Stmt,
     Stmts,
     UnaryExpr,
     VarAccess,
+    WhileStmt,
 )
 from src.error_handler import ErrorHandler
 from src.Lexer import Token, TokenType
@@ -26,7 +31,7 @@ class Parser(ABC):
         self.lookahead = self.tokens[self.index]
 
     @abstractmethod
-    def _parse_error(self, message: str) -> None:
+    def _parse_error(self, message: str, throw: bool = True) -> None:
         pass
 
     def is_eof(self) -> bool:
@@ -80,6 +85,7 @@ class RecursiveDescentParser(Parser):
     def __init__(self, tokens: List[Token], error_handler: ErrorHandler) -> None:
         super().__init__(tokens)
         self.error_handler = error_handler
+        self.loop_count = 0
 
     def _parse_error(self, message: str, throw: bool = True) -> None:
         message = f"Line[{self.lookahead.line}]: at {self.lookahead} " + message
@@ -99,6 +105,9 @@ class RecursiveDescentParser(Parser):
                 TokenType.DEF,
                 TokenType.WHILE,
                 TokenType.IF,
+                TokenType.NEWVAR,
+                TokenType.CONTINUE,
+                TokenType.BREAK,
                 TokenType.RETURN,
             ):
                 return
@@ -117,12 +126,65 @@ class RecursiveDescentParser(Parser):
             self._synchronize()
 
     def _statement(self) -> Stmt:
+        if self.is_type_in(TokenType.IF):
+            return self._if_stmt()
+        if self.is_type_in(TokenType.WHILE):
+            return self._while_stmt()
+        if self.is_type_in(TokenType.BREAK):
+            return self._break_stmt()
+        if self.is_type_in(TokenType.CONTINUE):
+            return self._continue_stmt()
+        if self.is_type_in(TokenType.NEWVAR):
+            return self._new_var()
+
         # All valid assignment targets are expressions -> parsing
         # expressions parses assignment targets
         expr = self._expression()
         if self.is_type_in(TokenType.ASSIGNMENT):
             return self._assign_stmt(expr)
         return self._expression_stmt(expr)
+
+    def _break_stmt(self) -> BreakStmt:
+        if self.loop_count <= 0:
+            self._parse_error("Can only use yamero in a loop body.", False)
+        self.advance()
+        self.match(TokenType.NEWLINE, "Expect newline character after yamero.")
+        return BreakStmt()
+
+    def _continue_stmt(self) -> ContinueStmt:
+        if self.loop_count <= 0:
+            self._parse_error("Can only use kowai in a loop body.", False)
+        self.advance()
+        self.match(TokenType.NEWLINE, "Expect newline character after kowai.")
+        return ContinueStmt()
+
+    def _while_stmt(self) -> WhileStmt:
+        try:
+            self.loop_count += 1
+            self.advance()  # eat while token
+            condition = self._expression()
+            if not self.is_type_in(TokenType.COLON):
+                self._parse_error("Expect ':' for block creation after while.")
+            block = BlockStmt(self._block_stmt())
+            return WhileStmt(condition, block)
+        finally:
+            self.loop_count -= 1
+
+    def _if_stmt(self) -> IfStmt:
+        self.advance()  # eat if token
+        condition = self._expression()
+        if not self.is_type_in(TokenType.COLON):
+            self._parse_error("Expect ':' for block creation after if.")
+        block = BlockStmt(self._block_stmt())
+
+        alternative = None
+        if self.is_type_in(TokenType.ELSE):
+            self.advance()
+            if not self.is_type_in(TokenType.COLON):
+                self._parse_error("Expect ':' for block creation after else.")
+            alternative = BlockStmt(self._block_stmt())
+
+        return IfStmt(condition, block, alternative)
 
     def _block_stmt(self) -> List[Stmt]:
         stmts = []
@@ -142,26 +204,38 @@ class RecursiveDescentParser(Parser):
         self.match(TokenType.NEWLINE, message)
         return ExprStmt(expr)
 
-    def _assign_stmt(self, expr) -> AssStmt:
+    def _assign_stmt(self, expr: Expr, new_var: bool = False) -> AssStmt:
+        """Wraps a sequence of assignment expressions in a statement form. If called
+        from the new_var method, assignments correspond to variable definitions.
+        Feels somewhat weird to separate assignments like this."""
         if type(expr) != VarAccess:
             self._parse_error("Can't assign to this left hand side.", False)
         name = self.tokens[self.index - 1]
         self.advance()
-        ass_stmt = AssStmt(name, self._assign())
+        ass_stmt = AssStmt(new_var, name, self._assign(new_var))
         message = "Expect newline character after assignment."
         self.match(TokenType.NEWLINE, message)
-        # TODO: Try to make an entry for all defined variables, functions and classes
         return ass_stmt
 
-    def _assign(self) -> Expr:
+    def _assign(self, new_var: bool = False) -> Expr:
+        """Expression part of an assignment. Basically the same code as in _assign_stmt."""
         expr = self._expression()
         if self.is_type_in(TokenType.ASSIGNMENT):
             if type(expr) != VarAccess:
                 self._parse_error("Cant't assign to this left hand side.", False)
             name = self.tokens[self.index - 1]
             self.advance()
-            expr = Assign(name, self._assign())
+            expr = Assign(new_var, name, self._assign())
         return expr
+
+    def _new_var(self) -> AssStmt:
+        """Called when baka is read, then an assignment needs to communicate
+        the runtime to create a new variable in the current environment."""
+        self.advance()
+        expr = self._expression()
+        if not self.is_type_in(TokenType.ASSIGNMENT):
+            self._parse_error("Can only use 'baka' in assignments.")
+        return self._assign_stmt(expr, True)
 
     def _expression(self) -> Expr:
         return self._logic_or()

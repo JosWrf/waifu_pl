@@ -10,3 +10,13 @@ class RuntimeException(RuntimeError):
         super().__init__()
         self.token = token
         self.message = message
+
+
+class BreakException(RuntimeException):
+    def __init__(self, token: Token = None, message: str = "") -> None:
+        super().__init__(token, message)
+
+
+class ContinueException(RuntimeException):
+    def __init__(self, token: Token = None, message: str = "") -> None:
+        super().__init__(token, message)

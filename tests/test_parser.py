@@ -8,21 +8,29 @@ from src.ast import (
     AssStmt,
     Assign,
     BinaryExpr,
+    BlockStmt,
+    BreakStmt,
+    ContinueStmt,
     Expr,
     ExprStmt,
     GroupingExpr,
+    IfStmt,
     Literal,
     LogicalExpr,
     Stmt,
     Stmts,
     UnaryExpr,
     VarAccess,
+    WhileStmt,
 )
 from src.error_handler import ErrorHandler
 from src.visitor import Visitor
 
 
 class ASTNodeComparator(Visitor):
+    """Uses the visitor pattern to compare whether the AST constructed by the parser
+    matches the expected AST."""
+
     def visit_assign(self, node: Assign) -> Tuple[Expr]:
         return (node.expression,)
 
@@ -47,11 +55,28 @@ class ASTNodeComparator(Visitor):
     def visit_stmts(self, node: Stmts) -> List[Stmt]:
         return node.stmts
 
+    def visit_blockstmt(self, node: BlockStmt) -> List[Stmt]:
+        return node.stmts
+
+    def visit_ifstmt(self, node: IfStmt) -> Tuple[Any]:
+        return (
+            (node.cond, node.then, node.other) if node.other else (node.cond, node.then)
+        )
+
+    def visit_whilestmt(self, node: WhileStmt) -> Tuple[Any]:
+        return (node.cond, node.body)
+
     def visit_assstmt(self, node: AssStmt) -> Tuple[Expr]:
         return (node.expression,)
 
     def visit_exprstmt(self, node: ExprStmt) -> Tuple[Expr]:
         return (node.expression,)
+
+    def visit_continuestmt(self, node: ContinueStmt) -> Tuple[()]:
+        return ()
+
+    def visit_breakstmt(self, node: BreakStmt) -> Tuple[()]:
+        return ()
 
     def compare_nodes(self, created_node: Any, expected_node: Any) -> bool:
         """The best way to compare would be to replace the if(type) line and replace
@@ -195,15 +220,38 @@ class TestParser:
         [
             (
                 "i <- 42 \n",
-                Stmts([AssStmt(Token(None, 0, TokenType.IDENTIFIER), Literal(None))]),
+                Stmts(
+                    [
+                        AssStmt(
+                            False, Token(None, 0, TokenType.IDENTIFIER), Literal(None)
+                        )
+                    ]
+                ),
             ),
             (
                 'fun <- have <- "one" \n',
                 Stmts(
                     [
                         AssStmt(
+                            False,
                             Token(None, 0, TokenType.IDENTIFIER),
-                            Assign(Token(None, 0, TokenType.IDENTIFIER), Literal(None)),
+                            Assign(
+                                False,
+                                Token(None, 0, TokenType.IDENTIFIER),
+                                Literal(None),
+                            ),
+                        )
+                    ]
+                ),
+            ),
+            (
+                "baka a <- 12\n",
+                Stmts(
+                    [
+                        AssStmt(
+                            True,
+                            Token(None, 0, TokenType.IDENTIFIER),
+                            Literal(None),
                         )
                     ]
                 ),
@@ -224,3 +272,110 @@ class TestParser:
         self._setup('var <- "one" <- "two" <- 3 \n')
         self.parser.parse()
         assert self.error_handler.error.call_count == 2
+
+    @pytest.mark.parametrize(
+        "test_input, expected",
+        [
+            (
+                "nani i:\n  1\ndaijobu:\n 2\n",
+                Stmts(
+                    [
+                        IfStmt(
+                            VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                            BlockStmt([ExprStmt(Literal(None))]),
+                            BlockStmt([ExprStmt(Literal(None))]),
+                        )
+                    ]
+                ),
+            ),
+            (
+                "nani i:\n  1\n  nani baito:\n   3\ndaijobu:\n 2\n",
+                Stmts(
+                    [
+                        IfStmt(
+                            VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                            BlockStmt(
+                                [
+                                    ExprStmt(Literal(None)),
+                                    IfStmt(
+                                        Literal(None),
+                                        BlockStmt([ExprStmt(Literal(None))]),
+                                        None,
+                                    ),
+                                ]
+                            ),
+                            BlockStmt([ExprStmt(Literal(None))]),
+                        )
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_if_stmt(self, test_input, expected):
+        self._setup(test_input)
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_if_error(self):
+        # Empty block not allowed
+        self._setup("nani i:\n  #do nothing\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+        # Else block intendation must match if block
+        self._setup("nani i:\n daijobu g:\n  f\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+    @pytest.mark.parametrize(
+        "test_input, expected",
+        [
+            (
+                "yandere true:\n do\n",
+                Stmts(
+                    [
+                        WhileStmt(
+                            Literal(None),
+                            BlockStmt(
+                                [
+                                    ExprStmt(
+                                        VarAccess(Token(None, 0, TokenType.IDENTIFIER))
+                                    )
+                                ]
+                            ),
+                        )
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_while_stmt(self, test_input, expected):
+        self._setup(test_input)
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_while_error(self):
+        # Empty block not allowed
+        self._setup("yandere i:\n  #do nothing\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+    def test_continue_stmt(self):
+        self._setup("kowai \n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+        self._setup("yandere 1:\n  kowai\n")
+        self.parser.parse()
+        assert not self.error_handler.error.called
+
+    def test_break_stmt(self):
+        self._setup("yamero \n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+        self._setup("yandere 1:\n  kowai\n")
+        self.parser.parse()
+        assert not self.error_handler.error.called

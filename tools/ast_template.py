@@ -22,15 +22,19 @@ class Stmt(ABC):
      
 {% for stmt, children in Stmt.items() -%}
 class {{stmt}}(Stmt):
+    {% if children %}
     def __init__(self{% for c in children %}, {{c[0]}}: {{c[1]}}{% endfor %}) -> None:
         {% for c in children -%}
         self.{{c[0]}} = {{c[0]}}
         {% endfor %}  
+    {% else %}
+        pass
+    {% endif %}
 {% endfor -%}
 """
 nodes = {
     "Expr": {
-        "Assign": [("name", "Token"), ("expression", "Expr")],
+        "Assign": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],
         "BinaryExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
         "UnaryExpr": [("operator", "Token"), ("right", "Expr")],
         "GroupingExpr": [("expression", "Expr")],
@@ -40,9 +44,13 @@ nodes = {
     },
     "Stmt": {
         "Stmts": [("stmts", "List[Stmt]")],
-        "AssStmt": [("name", "Token"), ("expression", "Expr")],
+        "AssStmt": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],
         "ExprStmt": [("expression", "Expr")],
         "BlockStmt": [("stmts", "List[Stmt]")],
+        "IfStmt": [("cond", "Expr"), ("then", "BlockStmt"), ("other", "BlockStmt")],
+        "WhileStmt": [("cond", "Expr"), ("body", "BlockStmt")],
+        "BreakStmt": [],
+        "ContinueStmt": [],
     },
 }
 

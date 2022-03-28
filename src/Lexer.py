@@ -40,10 +40,13 @@ class TokenType(Enum):
     ELSE = enum.auto()
     NIL = enum.auto()
     RETURN = enum.auto()
+    BREAK = enum.auto()
+    CONTINUE = enum.auto()
     TRUE = enum.auto()
     FALSE = enum.auto()
     DEF = enum.auto()
     WHILE = enum.auto()
+    NEWVAR = enum.auto()
 
     EOF = enum.auto()
 
@@ -87,7 +90,10 @@ class Lexer:
         "baito": TokenType.NIL,
         "desu": TokenType.DEF,
         "shinu": TokenType.RETURN,
+        "yamero": TokenType.BREAK,
+        "kowai": TokenType.CONTINUE,
         "yandere": TokenType.WHILE,
+        "baka": TokenType.NEWVAR,
     }
 
     simple_tokens = {
