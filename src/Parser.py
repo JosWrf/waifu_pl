@@ -288,7 +288,25 @@ class RecursiveDescentParser(Parser):
         return self._assign_stmt(expr, True)
 
     def _expression(self) -> Expr:
-        return self._logic_or()
+        return self._lambda()
+
+    def _lambda(self) -> Expr:
+        """Instead of using a new node for lambda expressions, lambdas are desugared to function
+        declarations, where the name of the function will be the empty string."""
+        if self.is_type_in(TokenType.QUESTION):
+            token = self.advance()
+            params = (
+                self._formal_params() if self.is_type_in(TokenType.IDENTIFIER) else []
+            )
+            self.match(TokenType.COLON, "Expect ':' after lambda expression.")
+            expr = FunctionDecl(
+                Token("", token.line, TokenType.IDENTIFIER),
+                params,
+                [ReturnStmt(token, self._lambda())],
+            )
+        else:
+            expr = self._logic_or()
+        return expr
 
     @binary_node("LogicalExpr", TokenType.OR)
     def _logic_or(self) -> Expr:

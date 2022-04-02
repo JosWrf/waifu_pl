@@ -59,7 +59,9 @@ class WaifuFunc(CallableObj):
 
     def __str__(self) -> str:
         """Python like output of function objects."""
-        return f"<function {self.node.name.value}>"
+        return (
+            f"<function {self.node.name.value}>" if self.node.name.value else "<lambda>"
+        )
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -134,7 +136,12 @@ class Interpreter(Visitor):
         declaration that is bound to a value of evaluating an expression.
         Inner functions are only declared when an outer function is called, thus
         we already have the closure setup by the function call."""
-        self.environment.define(node.name.value, WaifuFunc(node, self.environment))
+
+        # Lambdas are expressions and need to return a function
+        func = WaifuFunc(node, self.environment)
+        if node.name.value == "":
+            return func
+        self.environment.define(node.name.value, func)
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:
@@ -196,6 +203,9 @@ class Interpreter(Visitor):
         else:
             self.environment.assign(node.name, value)
         return value
+
+    # def visit_lambdaexpr(self, node: LambdaExpr) -> WaifuFunc:
+    #    return WaifuFunc(node, self.environment)
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
         left = self.visit(node.left)
@@ -264,7 +274,7 @@ class Interpreter(Visitor):
             self._report_runtime_err(
                 RuntimeException(
                     node.calltoken,
-                    f"Expected {len(callee.arity())} arguments but got{len(args)}",
+                    f"Expected {callee.arity()} arguments but got{len(args)}",
                 )
             )
 

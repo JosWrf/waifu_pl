@@ -47,8 +47,10 @@ assign         → (call ".")? IDENTIFIER "<-" assign;
 ### Expressions
 
 ```ebnf
-expression     → logic_or ;
+expression     → lambda ;
 
+lambda         → "?" parameters ":" lambda ;
+               | logic_or ;
 logic_or       → logic_and ( "or" logic_and )* ;
 logic_and      → equality ( "and" equality )* ;
 equality       → comparison ( ( "!=" | "=" ) comparison )* ;
