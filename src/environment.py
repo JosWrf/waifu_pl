@@ -13,12 +13,12 @@ class Environment:
         self.bindings = {}
         self.error_handler = error_handler
 
-    def define(self, name: Token, value: Any) -> None:
-        self.bindings[name.value] = value
+    def define(self, name: str, value: Any) -> None:
+        self.bindings[name] = value
 
     def assign(self, name: Token, value: Any) -> None:
         if not self._contains_name(name):
-            self.define(name, value)
+            self.define(name.value, value)
         else:
             self._assign_outer(name, value)
 

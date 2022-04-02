@@ -7,12 +7,15 @@ from src.ast import (
     Assign,
     BlockStmt,
     BreakStmt,
+    CallExpr,
     ContinueStmt,
     Expr,
     ExprStmt,
+    FunctionDecl,
     GroupingExpr,
     IfStmt,
     Literal,
+    ReturnStmt,
     Stmt,
     Stmts,
     UnaryExpr,
@@ -121,9 +124,45 @@ class RecursiveDescentParser(Parser):
 
     def _declaration(self) -> Stmt:
         try:
+            if self.is_type_in(TokenType.DEF):
+                return self._function_decl()
             return self._statement()
         except UnexpectedTokenException as ue:
             self._synchronize()
+
+    def _function_decl(self) -> Stmt:
+        self.advance()  # consume desu token
+        return self._function()
+
+    def _function(self) -> FunctionDecl:
+        if not self.is_type_in(TokenType.IDENTIFIER):
+            self._parse_error("Expect identifier after 'desu'.")
+        name = self.advance()
+        self.match(TokenType.OP_PAR, "Expect '(' after function name.")
+        params = self._formal_params()
+        self.match(TokenType.CL_PAR, "Expect ')' after function parameters.")
+        if not self.is_type_in(TokenType.COLON):
+            self._parse_error(
+                "Expect ':' for block creation after function parameters."
+            )
+        body = self._block_stmt()
+        return FunctionDecl(name, params, body)
+
+    def _formal_params(self) -> List[Token]:
+        params = []
+        if not self.is_type_in(TokenType.CL_PAR):
+            if not self.is_type_in(TokenType.IDENTIFIER):
+                self._parse_error("Expect identifier in function parameters.")
+            params.append(self.advance())
+            while self.is_type_in(TokenType.COMMA):
+                self.advance()
+                if len(params) > 127:
+                    self._parse_error("Maximum number of parameters is 127.", False)
+                if not self.is_type_in(TokenType.IDENTIFIER):
+                    self._parse_error("Expect identifier in function parameters.")
+                params.append(self.advance())
+
+        return params
 
     def _statement(self) -> Stmt:
         if self.is_type_in(TokenType.IF):
@@ -134,6 +173,8 @@ class RecursiveDescentParser(Parser):
             return self._break_stmt()
         if self.is_type_in(TokenType.CONTINUE):
             return self._continue_stmt()
+        if self.is_type_in(TokenType.RETURN):
+            return self._return_stmt()
         if self.is_type_in(TokenType.NEWVAR):
             return self._new_var()
 
@@ -158,6 +199,14 @@ class RecursiveDescentParser(Parser):
         self.match(TokenType.NEWLINE, "Expect newline character after kowai.")
         return ContinueStmt()
 
+    def _return_stmt(self) -> ReturnStmt:
+        err = self.advance()  # consume return
+        expr = None
+        if not self.is_type_in(TokenType.NEWLINE):
+            expr = self._expression()
+        self.match(TokenType.NEWLINE, "Expect newline character after return.")
+        return ReturnStmt(err, expr)
+
     def _while_stmt(self) -> WhileStmt:
         try:
             self.loop_count += 1
@@ -173,6 +222,7 @@ class RecursiveDescentParser(Parser):
     def _if_stmt(self) -> IfStmt:
         self.advance()  # eat if token
         condition = self._expression()
+        # TODO: Prolly cleaner to match before trying to parse a block
         if not self.is_type_in(TokenType.COLON):
             self._parse_error("Expect ':' for block creation after if.")
         block = BlockStmt(self._block_stmt())
@@ -277,7 +327,26 @@ class RecursiveDescentParser(Parser):
         return self._call()
 
     def _call(self) -> Expr:
-        return self._primary()
+        expr = self._primary()
+        while self.is_type_in(TokenType.OP_PAR):
+            self.advance()
+            args = self._actual_params()
+            # The token does not really matter, it's only for error messages anyways
+            expr = CallExpr(expr, self.lookahead, args)
+            self.match(TokenType.CL_PAR, "Expected ')' after function call.")
+        return expr
+
+    def _actual_params(self) -> List[Expr]:
+        args = []
+        if not self.is_type_in(TokenType.CL_PAR):
+            args.append(self._expression())
+            while self.is_type_in(TokenType.COMMA):
+                self.advance()
+                args.append(self._expression())
+
+        if len(args) > 127:
+            self._parse_error("Max number of arguments is 127.", False)
+        return args
 
     def _primary(self) -> Expr:
         if self.is_type_in(TokenType.NUMBER, TokenType.STRING):

@@ -1,4 +1,6 @@
-from typing import Any
+import importlib
+import inspect
+from typing import Any, List
 from src.Lexer import Token, TokenType
 from src.ast import (
     AssStmt,
@@ -6,13 +8,16 @@ from src.ast import (
     BinaryExpr,
     BlockStmt,
     BreakStmt,
+    CallExpr,
     ContinueStmt,
     Expr,
     ExprStmt,
+    FunctionDecl,
     GroupingExpr,
     IfStmt,
     Literal,
     LogicalExpr,
+    ReturnStmt,
     Stmts,
     UnaryExpr,
     VarAccess,
@@ -20,8 +25,44 @@ from src.ast import (
 )
 from src.environment import Environment
 from src.error_handler import ErrorHandler
-from src.errors import BreakException, ContinueException, RuntimeException
+from src.errors import (
+    BreakException,
+    ContinueException,
+    ReturnException,
+    RuntimeException,
+)
+from src.stdlib.stdlib import CallableObj
 from src.visitor import Visitor
+
+
+class WaifuFunc(CallableObj):
+    """This class corresponds to a runtime representation of user-defined
+    functions. The function declaration node stores the body of the function and the
+    formal parameters. All there's to call a function."""
+
+    def __init__(self, node: FunctionDecl, closure: Environment) -> None:
+        super().__init__()
+        self.node = node
+        self.closure = closure
+
+    def call(self, interpreter: "Interpreter", args: List[Any]) -> Any:
+        environment = Environment(interpreter.error_handler, self.closure)
+        for param, arg in zip(self.node.params, args):
+            environment.define(param.value, arg)
+        try:
+            interpreter._execute_block(self.node.body, environment)
+        except ReturnException as re:
+            return re.value
+
+    def arity(self) -> int:
+        return len(self.node.params)
+
+    def __str__(self) -> str:
+        """Python like output of function objects."""
+        return f"<function {self.node.name.value}>"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class Interpreter(Visitor):
@@ -29,6 +70,17 @@ class Interpreter(Visitor):
         super().__init__()
         self.error_handler = error_handler
         self.environment = Environment(self.error_handler)
+        self._load_stdlib("src.stdlib.stdlib")
+
+    def _load_stdlib(self, mod_name: str):
+        """Loads all classes defined in the stdlib module and packs instances in the
+        global environment."""
+        module = importlib.import_module(mod_name)
+        for name, obj in inspect.getmembers(
+            module,
+            lambda member: inspect.isclass(member) and member.__module__ == mod_name,
+        ):
+            self.environment.define(name.lower(), obj())
 
     def _boolean_eval(self, operand: Any) -> bool:
         """Implements evaluation of boolean expressions similar to lua."""
@@ -62,11 +114,27 @@ class Interpreter(Visitor):
         message = f"Line[{exception.token.line}]: {exception.message}"
         self.error_handler.error(message, True)
 
+    def _make_waifuish(self, value: Any) -> str:
+        """Converts python representation of a waifu value to the waifu representation."""
+        if value != 0 and not value:
+            return "baito"
+        if type(value) is float:
+            if str(value).endswith(".0"):
+                return str(value)[:-2]
+        return str(value)
+
     def interpret(self, node: Any) -> Any:
         try:
             self.visit(node)
         except RuntimeException as re:
             self._report_runtime_err(re)
+
+    def visit_functiondecl(self, node: FunctionDecl) -> None:
+        """Similar to an assignment statement where we have an implicit variable
+        declaration that is bound to a value of evaluating an expression.
+        Inner functions are only declared when an outer function is called, thus
+        we already have the closure setup by the function call."""
+        self.environment.define(node.name.value, WaifuFunc(node, self.environment))
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:
@@ -77,6 +145,9 @@ class Interpreter(Visitor):
 
     def visit_continuestmt(self, node: ContinueStmt) -> None:
         raise ContinueException()
+
+    def visit_returnstmt(self, node: ReturnStmt) -> None:
+        raise ReturnException(node.err, self.visit(node.expr) if node.expr else None)
 
     def visit_whilestmt(self, node: WhileStmt) -> None:
         try:
@@ -95,24 +166,28 @@ class Interpreter(Visitor):
             self.visit(node.other)
 
     def visit_blockstmt(self, node: BlockStmt) -> None:
-        outer_scope = self.environment
-        inner_scope = Environment(self.error_handler, outer_scope)
-        self.environment = inner_scope
-        for stmt in node.stmts:
-            self.visit(stmt)
+        self._execute_block(
+            node.stmts, Environment(self.error_handler, self.environment)
+        )
 
-        self.environment = outer_scope
+    def _execute_block(self, stmts: List[Stmts], environment: Environment) -> None:
+        outer_scope = self.environment
+        self.environment = environment
+        try:  # this is required as return statements can throw an exception
+            for stmt in stmts:
+                self.visit(stmt)
+        finally:
+            self.environment = outer_scope
 
     def visit_assstmt(self, node: AssStmt) -> None:
         value = self.visit(node.expression)
         if node.new_var:
-            self.environment.define(node.name, value)
+            self.environment.define(node.name.value, value)
         else:
             self.environment.assign(node.name, value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
-        # TODO: replace later on when print() is a library function
-        print(self._make_waifuish(self.visit(node.expression)))
+        self._make_waifuish(self.visit(node.expression))
 
     def visit_assign(self, node: Assign) -> None:
         value = self.visit(node.expression)
@@ -177,6 +252,24 @@ class Interpreter(Visitor):
         if node.operator.type == TokenType.NOT:
             return not self._boolean_eval(operand)
 
+    def visit_callexpr(self, node: CallExpr) -> Any:
+        callee = self.visit(node.callee)
+        args = [self.visit(expr) for expr in node.args]
+
+        if not isinstance(callee, CallableObj):
+            self._report_runtime_err(
+                RuntimeException(node.calltoken, "Can only invoke callables.")
+            )
+        if not callee.arity() == len(args):
+            self._report_runtime_err(
+                RuntimeException(
+                    node.calltoken,
+                    f"Expected {len(callee.arity())} arguments but got{len(args)}",
+                )
+            )
+
+        return callee.call(self, args)
+
     def visit_groupingexpr(self, node: GroupingExpr) -> Any:
         return self.visit(node.expression)
 
@@ -185,12 +278,3 @@ class Interpreter(Visitor):
 
     def visit_varaccess(self, node: VarAccess) -> Any:
         return self.environment.get_value(node.name)
-
-    def _make_waifuish(self, value: Any) -> str:
-        """Converts python representation of a waifu value to the waifu representation."""
-        if not value:
-            return "baito"
-        if type(value) is float:
-            if str(value).endswith(".0"):
-                return str(value)[:-2]
-        return str(value)

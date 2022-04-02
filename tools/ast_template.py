@@ -40,10 +40,20 @@ nodes = {
         "GroupingExpr": [("expression", "Expr")],
         "Literal": [("value", "Any")],
         "LogicalExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
+        "CallExpr": [
+            ("callee", "Expr"),
+            ("calltoken", "Token"),
+            ("args", "List[Expr]"),
+        ],
         "VarAccess": [("name", "Token")],
     },
     "Stmt": {
         "Stmts": [("stmts", "List[Stmt]")],
+        "FunctionDecl": [
+            ("name", "Token"),
+            ("params", "List[Token]"),
+            ("body", "List[Stmt]"),
+        ],
         "AssStmt": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],
         "ExprStmt": [("expression", "Expr")],
         "BlockStmt": [("stmts", "List[Stmt]")],
@@ -51,6 +61,7 @@ nodes = {
         "WhileStmt": [("cond", "Expr"), ("body", "BlockStmt")],
         "BreakStmt": [],
         "ContinueStmt": [],
+        "ReturnStmt": [("err", "Token"), ("expr", "Expr")],
     },
 }
 

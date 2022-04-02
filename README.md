@@ -62,8 +62,8 @@ primary        → "true" | "false" | "baito"
                | NUMBER | STRING | IDENTIFIER | "(" expression ");
 
 function       → IDENTIFIER "(" parameters? ")" block;
-parameters     → IDENTIFIER "(" "," IDENTIFIER* ")";
-arguments      → expression "(" "," expression* ")";
+parameters     → IDENTIFIER ( "," IDENTIFIER* );
+arguments      → expression ( "," expression* );
 ```
 
 ## Language specifics
