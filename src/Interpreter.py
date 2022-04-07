@@ -141,7 +141,29 @@ class Interpreter(Visitor):
         func = WaifuFunc(node, self.environment)
         if node.name.value == "":
             return func
-        self.environment.define(node.name.value, func)
+
+        if node.decorator:
+            self._decorated_function(node)
+        else:
+            self.environment.define(node.name.value, func)
+
+    def _decorated_function(self, node: FunctionDecl) -> None:
+        dec_func = self.environment.get_value(node.decorator)
+        if not type(dec_func) is WaifuFunc:
+            self._report_runtime_err(
+                RuntimeException(node.name, "Can only use a function as a decorator.")
+            )
+        if dec_func.arity() != 1:
+            self._report_runtime_err(
+                RuntimeException(
+                    node.name, "Can only pass one function argumnent to a decorator."
+                )
+            )
+
+        # Wrapper function stores function object in its closure
+        wrapper = dec_func.call(self, [WaifuFunc(node, self.environment)])
+
+        self.environment.define(node.name.value, wrapper)
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:

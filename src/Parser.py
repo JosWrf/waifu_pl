@@ -124,6 +124,8 @@ class RecursiveDescentParser(Parser):
 
     def _declaration(self) -> Stmt:
         try:
+            if self.is_type_in(TokenType.DECORATOR):
+                return self._decorator()
             if self.is_type_in(TokenType.DEF):
                 return self._function_decl()
             return self._statement()
@@ -146,7 +148,7 @@ class RecursiveDescentParser(Parser):
                 "Expect ':' for block creation after function parameters."
             )
         body = self._block_stmt()
-        return FunctionDecl(name, params, body)
+        return FunctionDecl(None, name, params, body)
 
     def _formal_params(self) -> List[Token]:
         params = []
@@ -163,6 +165,16 @@ class RecursiveDescentParser(Parser):
                 params.append(self.advance())
 
         return params
+
+    def _decorator(self) -> FunctionDecl:
+        self.advance()  # eat @
+        if not self.is_type_in(TokenType.IDENTIFIER):
+            self._parse_error("Expect identifier after '@' in decorated function.")
+        name = self.advance()
+        self.match(TokenType.NEWLINE, "Expect newline after decorator.")
+        func = self._function_decl()
+        func.decorator = name
+        return func
 
     def _statement(self) -> Stmt:
         if self.is_type_in(TokenType.IF):
@@ -300,6 +312,7 @@ class RecursiveDescentParser(Parser):
             )
             self.match(TokenType.COLON, "Expect ':' after lambda expression.")
             expr = FunctionDecl(
+                None,
                 Token("", token.line, TokenType.IDENTIFIER),
                 params,
                 [ReturnStmt(token, self._lambda())],

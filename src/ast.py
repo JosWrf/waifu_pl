@@ -66,7 +66,10 @@ class Stmts(Stmt):
 
 
 class FunctionDecl(Stmt):
-    def __init__(self, name: Token, params: List[Token], body: List[Stmt]) -> None:
+    def __init__(
+        self, decorator: Token, name: Token, params: List[Token], body: List[Stmt]
+    ) -> None:
+        self.decorator = decorator
         self.name = name
         self.params = params
         self.body = body

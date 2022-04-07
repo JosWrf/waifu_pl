@@ -19,6 +19,7 @@ class TokenType(Enum):
     DEDENT = enum.auto()
     COMMA = enum.auto()
     QUESTION = enum.auto()
+    DECORATOR = enum.auto()
 
     # Literal
     NUMBER = enum.auto()
@@ -110,6 +111,7 @@ class Lexer:
         ":": TokenType.COLON,
         ",": TokenType.COMMA,
         "?": TokenType.QUESTION,
+        "@": TokenType.DECORATOR,
     }
 
     def __init__(self, text: str, error_handler: ErrorHandler) -> None:

@@ -10,13 +10,16 @@ from src.ast import (
     BinaryExpr,
     BlockStmt,
     BreakStmt,
+    CallExpr,
     ContinueStmt,
     Expr,
     ExprStmt,
+    FunctionDecl,
     GroupingExpr,
     IfStmt,
     Literal,
     LogicalExpr,
+    ReturnStmt,
     Stmt,
     Stmts,
     UnaryExpr,
@@ -49,11 +52,17 @@ class ASTNodeComparator(Visitor):
     def visit_varaccess(self, node: VarAccess) -> Tuple[()]:
         return ()
 
+    def visit_callexpr(self, node: CallExpr) -> List[Expr]:
+        return [node.callee] + node.args
+
     def visit_groupingexpr(self, node: GroupingExpr) -> Tuple[Expr]:
         return (node.expression,)
 
     def visit_stmts(self, node: Stmts) -> List[Stmt]:
         return node.stmts
+
+    def visit_functiondecl(self, node: FunctionDecl) -> List[Stmt]:
+        return node.body
 
     def visit_blockstmt(self, node: BlockStmt) -> List[Stmt]:
         return node.stmts
@@ -77,6 +86,9 @@ class ASTNodeComparator(Visitor):
 
     def visit_breakstmt(self, node: BreakStmt) -> Tuple[()]:
         return ()
+
+    def visit_returnstmt(self, node: ReturnStmt) -> Tuple[()]:
+        return (node.expr,)
 
     def compare_nodes(self, created_node: Any, expected_node: Any) -> bool:
         """The best way to compare would be to replace the if(type) line and replace
@@ -379,3 +391,239 @@ class TestParser:
         self._setup("yandere 1:\n  kowai\n")
         self.parser.parse()
         assert not self.error_handler.error.called
+
+    @pytest.mark.parametrize(
+        "test_input,expected",
+        [
+            (
+                "desu f():\n  shinu 42\n",
+                Stmts(
+                    [
+                        FunctionDecl(
+                            None,
+                            Token(None, 0, TokenType.IDENTIFIER),
+                            [],
+                            [ReturnStmt(Token(None, 0, TokenType.RETURN), Literal(42))],
+                        )
+                    ]
+                ),
+            ),
+            (
+                "desu function(a):\n  b <- a*2\n",
+                Stmts(
+                    [
+                        FunctionDecl(
+                            None,
+                            Token(None, 0, TokenType.IDENTIFIER),
+                            [Token(None, 0, TokenType.IDENTIFIER)],
+                            [
+                                AssStmt(
+                                    False,
+                                    Token(None, 0, TokenType.IDENTIFIER),
+                                    BinaryExpr(
+                                        VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                                        Token(None, 0, TokenType.TIMES),
+                                        Literal(2),
+                                    ),
+                                )
+                            ],
+                        )
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_function(self, test_input, expected):
+        self._setup(test_input)
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_function_error(self):
+        self._setup("desu f(:\n shinu")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+        self._setup("desu g():\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+    def test_nested_function(self):
+        self._setup("desu f():\n desu g():\n  shinu 1\n g()\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                FunctionDecl(
+                    None,
+                    Token(None, 0, TokenType.IDENTIFIER),
+                    [],
+                    [
+                        FunctionDecl(
+                            None,
+                            Token(None, 0, TokenType.IDENTIFIER),
+                            [],
+                            [ReturnStmt(Token(None, 0, TokenType.RETURN), Literal(1))],
+                        ),
+                        ExprStmt(
+                            CallExpr(
+                                VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                                Token(None, 0, TokenType.CL_PAR),
+                                [],
+                            )
+                        ),
+                    ],
+                )
+            ]
+        )
+        assert not self.error_handler.error.called
+        print(nodes.stmts[0].body[1].expression)
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    @pytest.mark.parametrize(
+        "test_input, expected",
+        [
+            (
+                "? a,b: a+b\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            FunctionDecl(
+                                None,
+                                Token("", 0, TokenType.QUESTION),
+                                [
+                                    Token(None, 0, TokenType.IDENTIFIER),
+                                    Token(None, 0, TokenType.IDENTIFIER),
+                                ],
+                                [
+                                    ReturnStmt(
+                                        Token(None, 0, TokenType.RETURN),
+                                        BinaryExpr(
+                                            VarAccess(
+                                                Token(None, 0, TokenType.IDENTIFIER)
+                                            ),
+                                            Token(None, 0, TokenType.PLUS),
+                                            VarAccess(
+                                                Token(None, 0, TokenType.IDENTIFIER)
+                                            ),
+                                        ),
+                                    )
+                                ],
+                            )
+                        )
+                    ]
+                ),
+            ),
+            (
+                "? x : ? : x\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            FunctionDecl(
+                                None,
+                                Token("", 0, TokenType.QUESTION),
+                                [Token(None, 0, TokenType.IDENTIFIER)],
+                                [
+                                    ReturnStmt(
+                                        Token(None, 0, TokenType.RETURN),
+                                        FunctionDecl(
+                                            None,
+                                            Token("", 0, TokenType.QUESTION),
+                                            [],
+                                            [
+                                                ReturnStmt(
+                                                    Token(None, 0, TokenType.RETURN),
+                                                    VarAccess(
+                                                        Token(
+                                                            None,
+                                                            0,
+                                                            TokenType.IDENTIFIER,
+                                                        )
+                                                    ),
+                                                )
+                                            ],
+                                        ),
+                                    )
+                                ],
+                            )
+                        )
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_lambda(self, test_input, expected):
+        self._setup(test_input)
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_lambda_error(self):
+        self._setup("desu x:\n x")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+        self._setup("? (x,y): x+y\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+    def test_decorator(self):
+        self._setup("@dec\ndesu f():\n -2\n")
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        # Should be Stmts[FunctionDeclaration], where decorator is not None
+        assert not nodes.stmts[0].decorator == None
+
+    def test_decorator_error(self):
+        self._setup("@dec\n? x : x+1\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+        self._setup("@\ndesu f():\n  shinu\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+    @pytest.mark.parametrize(
+        "test_input,expected",
+        [
+            (
+                "f(a,2)\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            CallExpr(
+                                VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                                Token(None, 0, TokenType.CL_PAR),
+                                [
+                                    VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                                    Literal(2),
+                                ],
+                            )
+                        )
+                    ]
+                ),
+            ),
+            (
+                "g()()\n",
+                Stmts(
+                    [
+                        ExprStmt(
+                            CallExpr(
+                                CallExpr(
+                                    VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                                    Token(None, 0, TokenType.CL_PAR),
+                                    [],
+                                ),
+                                Token(None, 0, TokenType.CL_PAR),
+                                [],
+                            )
+                        )
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_function_call(self, test_input, expected):
+        self._setup(test_input)
+        nodes = self.parser.parse()
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)

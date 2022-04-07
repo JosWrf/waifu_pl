@@ -21,6 +21,7 @@ class TestLexer:
             ("baka", [TokenType.NEWVAR, TokenType.EOF]),
             ("yamero", [TokenType.BREAK, TokenType.EOF]),
             ("kowai", [TokenType.CONTINUE, TokenType.EOF]),
+            ("@", [TokenType.DECORATOR, TokenType.EOF]),
         ],
     )
     def test_simple_tokens(self, test_input, expected):
@@ -121,7 +122,7 @@ class TestLexer:
         assert tokens == expected
         assert not self.error_handler.error.called
 
-    @pytest.mark.parametrize("test_input", ["?", "$", '"asd'])
+    @pytest.mark.parametrize("test_input", ["&", "$", '"asd'])
     def test_wrong_tokens(self, test_input):
         self._setLexer(test_input)
         self.lexer.get_tokens()

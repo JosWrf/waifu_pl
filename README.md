@@ -16,7 +16,7 @@ declaration    → funDecl
                | varDecl
                | statement ;
 
-funDecl        → "desu" function ;
+funDecl        → decorator? "desu" function ;
 ```
 
 [comment]: <> (after varDecl and statements instead of NEWLINE tokens i should probably also allow EOF tokens aswell.)
@@ -66,6 +66,7 @@ primary        → "true" | "false" | "baito"
 function       → IDENTIFIER "(" parameters? ")" block;
 parameters     → IDENTIFIER ( "," IDENTIFIER* );
 arguments      → expression ( "," expression* );
+decorator      → "@" IDENTIFIER NEWLINE;
 ```
 
 ## Language specifics
