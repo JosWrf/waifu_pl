@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from typing import Any, List
+from typing import Any, Dict, List
 from src.Lexer import Token, TokenType
 from src.ast import (
     AssStmt,
@@ -68,10 +68,13 @@ class WaifuFunc(CallableObj):
 
 
 class Interpreter(Visitor):
-    def __init__(self, error_handler: ErrorHandler) -> None:
+    def __init__(
+        self, error_handler: ErrorHandler, resolved_vars: Dict[Expr, int]
+    ) -> None:
         super().__init__()
         self.error_handler = error_handler
         self.environment = Environment(self.error_handler)
+        self.resolved_vars = resolved_vars
         self._load_stdlib("src.stdlib.stdlib")
 
     def _load_stdlib(self, mod_name: str):
@@ -148,7 +151,15 @@ class Interpreter(Visitor):
             self.environment.define(node.name.value, func)
 
     def _decorated_function(self, node: FunctionDecl) -> None:
-        dec_func = self.environment.get_value(node.decorator)
+        num_hops = self.resolved_vars.get(node)
+        if num_hops is None:
+            self._report_runtime_err(
+                RuntimeException(
+                    node.decorator,
+                    f"Decorating function '{node.decorator.value}' does not exist.",
+                )
+            )
+        dec_func = self.environment.get_at_index(node.decorator, num_hops)
         if not type(dec_func) is WaifuFunc:
             self._report_runtime_err(
                 RuntimeException(node.name, "Can only use a function as a decorator.")
@@ -213,21 +224,26 @@ class Interpreter(Visitor):
         if node.new_var:
             self.environment.define(node.name.value, value)
         else:
-            self.environment.assign(node.name, value)
+            num_hops = self.resolved_vars.get(node)
+            if not num_hops is None:
+                self.environment.assign_at(node.name, value, num_hops)
+            else:
+                self.environment.define(node.name.value, value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
-        self._make_waifuish(self.visit(node.expression))
+        self.visit(node.expression)
 
-    def visit_assign(self, node: Assign) -> None:
+    def visit_assign(self, node: Assign) -> Any:
         value = self.visit(node.expression)
         if node.new_var:
-            self.environment.define(node.name, value)
+            self.environment.define(node.name.value, value)
         else:
-            self.environment.assign(node.name, value)
+            num_hops = self.resolved_vars.get(node)
+            if not num_hops is None:
+                self.environment.assign_at(node.name, value, num_hops)
+            else:
+                self.environment.define(node.name.value, value)
         return value
-
-    # def visit_lambdaexpr(self, node: LambdaExpr) -> WaifuFunc:
-    #    return WaifuFunc(node, self.environment)
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
         left = self.visit(node.left)
@@ -309,4 +325,10 @@ class Interpreter(Visitor):
         return node.value
 
     def visit_varaccess(self, node: VarAccess) -> Any:
-        return self.environment.get_value(node.name)
+        num_hops = self.resolved_vars.get(node)
+        if not num_hops is None:
+            return self.environment.get_at_index(node.name, num_hops)
+        # Undefined variable case
+        self._report_runtime_err(
+            RuntimeException(node.name, f"Undefined variable '{node.name.value}'.")
+        )

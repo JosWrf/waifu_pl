@@ -2,6 +2,7 @@ import sys
 from src.Interpreter import Interpreter
 from src.Lexer import Lexer
 from src.Parser import RecursiveDescentParser
+from src.Resolver import Resolver
 from src.error_handler import ErrorHandler
 
 
@@ -48,5 +49,9 @@ if __name__ == "__main__":
     ast = parser.parse()
     if waifu.err:
         sys.exit(-1)
-    interpreter = Interpreter(error_handler)
+    resolver = Resolver(error_handler)
+    resolved_vars = resolver.resolve(ast)
+    if waifu.err:
+        sys.exit(-1)
+    interpreter = Interpreter(error_handler, resolved_vars)
     interpreter.interpret(ast)

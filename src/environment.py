@@ -16,25 +16,12 @@ class Environment:
     def define(self, name: str, value: Any) -> None:
         self.bindings[name] = value
 
-    def assign(self, name: Token, value: Any) -> None:
-        if not self._contains_name(name):
-            self.define(name.value, value)
-        else:
-            self._assign_outer(name, value)
-
-    def _assign_outer(self, name: Token, value: Any) -> None:
-        if name.value in self.bindings:
+    def assign_at(self, name: Token, value: Any, index: int) -> None:
+        if index == 0 and name.value in self.bindings:
             self.bindings[name.value] = value
             return
-        return self.outer.assign(name, value)
 
-    def _contains_name(self, name: Token) -> bool:
-        if name.value in self.bindings:
-            return True
-        if self.outer:
-            return self.outer._contains_name(name)
-        else:
-            return False
+        self.outer.assign_at(name, value, index - 1)
 
     def get_value(self, name: Token) -> Any:
         if name.value in self.bindings:
@@ -44,3 +31,9 @@ class Environment:
             return self.outer.get_value(name)
         else:
             raise RuntimeException(name, f"Undefined variable '{name.value}'.")
+
+    def get_at_index(self, name: Token, index: int) -> Any:
+        if index == 0 and name.value in self.bindings:
+            return self.bindings[name.value]
+
+        return self.outer.get_at_index(name, index - 1)
