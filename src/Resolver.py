@@ -73,10 +73,10 @@ class Resolver(Visitor):
     def _report_unused(self):
         if not self.unused_vars:
             return
-        print("Warning! the following variables are unused:")
+        message = "Warning! the following variables are unused:\n"
         for unused in self.unused_vars:
-            print(f"Line[{unused.line}]: {unused.value}")
-        print()
+            message += f"Line[{unused.line}]: {unused.value}\n"
+        self.error_handler.error(message)
 
     def _check_unused(self, scope: Dict[str, Tuple[bool, Token]]) -> None:
         """Called everytime a block is popped of the scope stack."""
@@ -97,18 +97,20 @@ class Resolver(Visitor):
     def _resolve(self, name: Token, node: Any, use=False) -> bool:
         """Assigning to a variable does not do shit if it's not read at some point."""
         for index, scope_table in enumerate(reversed(self.scopes)):
-            if name.value in scope_table:
-                if use:
-                    scope_table[name.value] = (use, name)
-                self.resolved_vars[node] = index
-                return True
+            for column, key in enumerate(scope_table):
+                if key == name.value:
+                    if use:
+                        scope_table[name.value] = (use, name)
+                    self.resolved_vars[node] = (index, column)
+                    return True
         # Needed so that no new variables are defined when resolving
         # would lead to a global variable.
-        if name.value in self.globals:
-            if use:
-                self.globals[name.value] = (use, name)
-            self.resolved_vars[node] = len(self.scopes)
-            return True
+        for column, key in enumerate(self.globals):
+            if key == name.value:
+                if use:
+                    self.globals[name.value] = (use, name)
+                self.resolved_vars[node] = (len(self.scopes), column)
+                return True
         return False
 
     def visit_assign(self, node: Assign) -> None:
@@ -153,7 +155,7 @@ class Resolver(Visitor):
     def visit_functiondecl(self, node: FunctionDecl) -> None:
         # Decorating functions must also be resolved
         if node.decorator:
-            self._resolve(node.decorator, node)
+            self._resolve(node.decorator, node, True)
         # Lambdas will not be bound
         if node.name.value != "":
             message = f"Can not redefine function as '{node.name.value}' already exists in current scope."

@@ -46,9 +46,9 @@ class WaifuFunc(CallableObj):
         self.closure = closure
 
     def call(self, interpreter: "Interpreter", args: List[Any]) -> Any:
-        environment = Environment(interpreter.error_handler, self.closure)
-        for param, arg in zip(self.node.params, args):
-            environment.define(param.value, arg)
+        environment = Environment(self.closure)
+        for arg in args:
+            environment.define(arg)
         try:
             interpreter._execute_block(self.node.body, environment)
         except ReturnException as re:
@@ -73,7 +73,7 @@ class Interpreter(Visitor):
     ) -> None:
         super().__init__()
         self.error_handler = error_handler
-        self.environment = Environment(self.error_handler)
+        self.environment = Environment()
         self.resolved_vars = resolved_vars
         self._load_stdlib("src.stdlib.stdlib")
 
@@ -85,7 +85,7 @@ class Interpreter(Visitor):
             module,
             lambda member: inspect.isclass(member) and member.__module__ == mod_name,
         ):
-            self.environment.define(name.lower(), obj())
+            self.environment.define(obj())
 
     def _boolean_eval(self, operand: Any) -> bool:
         """Implements evaluation of boolean expressions similar to lua."""
@@ -148,18 +148,18 @@ class Interpreter(Visitor):
         if node.decorator:
             self._decorated_function(node)
         else:
-            self.environment.define(node.name.value, func)
+            self.environment.define(func)
 
     def _decorated_function(self, node: FunctionDecl) -> None:
-        num_hops = self.resolved_vars.get(node)
-        if num_hops is None:
+        indices = self.resolved_vars.get(node)
+        if indices is None:
             self._report_runtime_err(
                 RuntimeException(
                     node.decorator,
                     f"Decorating function '{node.decorator.value}' does not exist.",
                 )
             )
-        dec_func = self.environment.get_at_index(node.decorator, num_hops)
+        dec_func = self.environment.get_at_index(indices[0], indices[1])
         if not type(dec_func) is WaifuFunc:
             self._report_runtime_err(
                 RuntimeException(node.name, "Can only use a function as a decorator.")
@@ -174,7 +174,7 @@ class Interpreter(Visitor):
         # Wrapper function stores function object in its closure
         wrapper = dec_func.call(self, [WaifuFunc(node, self.environment)])
 
-        self.environment.define(node.name.value, wrapper)
+        self.environment.define(wrapper)
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:
@@ -206,9 +206,7 @@ class Interpreter(Visitor):
             self.visit(node.other)
 
     def visit_blockstmt(self, node: BlockStmt) -> None:
-        self._execute_block(
-            node.stmts, Environment(self.error_handler, self.environment)
-        )
+        self._execute_block(node.stmts, Environment(self.environment))
 
     def _execute_block(self, stmts: List[Stmts], environment: Environment) -> None:
         outer_scope = self.environment
@@ -222,13 +220,13 @@ class Interpreter(Visitor):
     def visit_assstmt(self, node: AssStmt) -> None:
         value = self.visit(node.expression)
         if node.new_var:
-            self.environment.define(node.name.value, value)
+            self.environment.define(value)
         else:
-            num_hops = self.resolved_vars.get(node)
-            if not num_hops is None:
-                self.environment.assign_at(node.name, value, num_hops)
+            indices = self.resolved_vars.get(node)
+            if not indices is None:
+                self.environment.assign_at(value, indices[0], indices[1])
             else:
-                self.environment.define(node.name.value, value)
+                self.environment.define(value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
         self.visit(node.expression)
@@ -236,13 +234,13 @@ class Interpreter(Visitor):
     def visit_assign(self, node: Assign) -> Any:
         value = self.visit(node.expression)
         if node.new_var:
-            self.environment.define(node.name.value, value)
+            self.environment.define(value)
         else:
-            num_hops = self.resolved_vars.get(node)
-            if not num_hops is None:
-                self.environment.assign_at(node.name, value, num_hops)
+            indices = self.resolved_vars.get(node)
+            if not indices is None:
+                self.environment.assign_at(value, indices[0], indices[1])
             else:
-                self.environment.define(node.name.value, value)
+                self.environment.define(value)
         return value
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
@@ -325,9 +323,9 @@ class Interpreter(Visitor):
         return node.value
 
     def visit_varaccess(self, node: VarAccess) -> Any:
-        num_hops = self.resolved_vars.get(node)
-        if not num_hops is None:
-            return self.environment.get_at_index(node.name, num_hops)
+        indices = self.resolved_vars.get(node)
+        if not indices is None:
+            return self.environment.get_at_index(indices[0], indices[1])
         # Undefined variable case
         self._report_runtime_err(
             RuntimeException(node.name, f"Undefined variable '{node.name.value}'.")
