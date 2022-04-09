@@ -1,7 +1,7 @@
 import enum
 import importlib
 import inspect
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from src.Lexer import Token
 from src.ast import (
     Assign,
@@ -41,7 +41,8 @@ class Resolver(Visitor):
     def __init__(self, error_handler: ErrorHandler) -> None:
         super().__init__()
         self.scopes = []
-        self.globals = []
+        self.unused_vars = []
+        self.globals = {}
         self.resolved_vars = {}
         self.error_handler = error_handler
         self.function = None
@@ -54,7 +55,7 @@ class Resolver(Visitor):
             module,
             lambda member: inspect.isclass(member) and member.__module__ == mod_name,
         ):
-            self.globals.append(name.lower())
+            self.globals[name.lower()] = (True, None)
 
     def _semantic_error(self, err_token: Token, message: str):
         message = f"Line[{err_token.line}]: {message}"
@@ -62,30 +63,50 @@ class Resolver(Visitor):
 
     def _check_defined(self, name: Token, message: str) -> None:
         """Called when baka is in front of assignment statements or assigns.
-        Also called when local functions with names."""
+        Also called when local functions with names. Top-level functions
+        may be redeclared."""
         for scope in self.scopes:
             if name.value in scope:
                 self._semantic_error(name, message)
                 return
 
+    def _report_unused(self):
+        if not self.unused_vars:
+            return
+        print("Warning! the following variables are unused:")
+        for unused in self.unused_vars:
+            print(f"Line[{unused.line}]: {unused.value}")
+        print()
+
+    def _check_unused(self, scope: Dict[str, Tuple[bool, Token]]) -> None:
+        """Called everytime a block is popped of the scope stack."""
+        self.unused_vars += [used[1] for used in scope.values() if not used[0]]
+
     def resolve(self, node: Stmts) -> Dict[Expr, int]:
         self.visit(node)
+        self._check_unused(self.globals)
+        self._report_unused()
         return self.resolved_vars
 
     def _define(self, name: Token) -> None:
         if self.scopes:
-            self.scopes[-1].append(name.value)
+            self.scopes[-1][name.value] = (False, name)
         else:
-            self.globals.append(name.value)
+            self.globals[name.value] = (False, name)
 
-    def _resolve(self, name: Token, node: Any) -> bool:
+    def _resolve(self, name: Token, node: Any, use=False) -> bool:
+        """Assigning to a variable does not do shit if it's not read at some point."""
         for index, scope_table in enumerate(reversed(self.scopes)):
             if name.value in scope_table:
+                if use:
+                    scope_table[name.value] = (use, name)
                 self.resolved_vars[node] = index
                 return True
         # Needed so that no new variables are defined when resolving
         # would lead to a global variable.
         if name.value in self.globals:
+            if use:
+                self.globals[name.value] = (use, name)
             self.resolved_vars[node] = len(self.scopes)
             return True
         return False
@@ -115,7 +136,7 @@ class Resolver(Visitor):
         return None
 
     def visit_varaccess(self, node: VarAccess) -> None:
-        self._resolve(node.name, node)
+        self._resolve(node.name, node, True)
 
     def visit_callexpr(self, node: CallExpr) -> None:
         self.visit(node.callee)
@@ -141,17 +162,17 @@ class Resolver(Visitor):
 
         current_context = self.function
         self.function = Context.FUNCTION
-        self.scopes.append([param.value for param in node.params])
+        self.scopes.append({param.value: (False, param) for param in node.params})
         for stmt in node.body:
             self.visit(stmt)
         self.function = current_context
-        self.scopes.pop()
+        self._check_unused(self.scopes.pop())
 
     def visit_blockstmt(self, node: BlockStmt) -> None:
-        self.scopes.append([])
+        self.scopes.append({})
         for stmt in node.stmts:
             self.visit(stmt)
-        self.scopes.pop()
+        self._check_unused(self.scopes.pop())
 
     def visit_ifstmt(self, node: IfStmt) -> None:
         self.visit(node.cond)
