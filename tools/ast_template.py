@@ -57,6 +57,7 @@ nodes = {
             ("name", "Token"),
             ("params", "List[Token]"),
             ("body", "List[Stmt]"),
+            ("static", "bool = False"),
         ],
         "ClassDecl": [("name", "Token"), ("methods", "List[Stmt]")],
         "AssStmt": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],

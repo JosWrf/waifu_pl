@@ -76,10 +76,36 @@ class WaifuFunc(CallableObj):
         return self.__str__()
 
 
-class WaifuClass(CallableObj):
+class WaifuObject:
+    """Runtime representation of objects in the waifu language."""
+
+    def __init__(self, cls: "WaifuClass") -> None:
+        self.cls = cls
+        self.fields = {}
+
+    def get(self, name: Token) -> Any:
+        if name.value in self.fields:
+            return self.fields[name.value]
+
+        if name.value in self.cls.methods:
+            return self.cls.methods[name.value]
+
+        raise RuntimeException(
+            name, f"Property '{name.value}' does not exist for {self.__str__()}."
+        )
+
+    def set(self, name: Token, value: Any) -> None:
+        self.fields[name.value] = value
+
+    def __str__(self) -> str:
+        return f"<object of {self.cls.__str__()}>"
+
+
+class WaifuClass(WaifuObject, CallableObj):
     """Runtime representation of classes in the waifu language."""
 
-    def __init__(self, name) -> None:
+    def __init__(self, name: str, meta_cls: "WaifuClass") -> None:
+        super(WaifuClass, self).__init__(meta_cls)
         self.name = name
         self.methods = {}
 
@@ -101,31 +127,6 @@ class WaifuClass(CallableObj):
 
     def __str__(self) -> str:
         return f"<class {self.name}>"
-
-
-class WaifuObject:
-    """Runtime representation of objects in the waifu language."""
-
-    def __init__(self, cls: WaifuClass) -> None:
-        self.cls = cls
-        self.fields = {}
-
-    def get(self, name: Token) -> Any:
-        if name.value in self.fields:
-            return self.fields[name.value]
-
-        if name.value in self.cls.methods:
-            return self.cls.methods[name.value]
-
-        raise RuntimeException(
-            name, f"Property '{name.value}' does not exist for {self.__str__()}."
-        )
-
-    def set(self, name: Token, value: Any) -> None:
-        self.fields[name.value] = value
-
-    def __str__(self) -> str:
-        return f"<object of {self.cls.__str__()}>"
 
 
 class Interpreter(Visitor):
@@ -197,11 +198,15 @@ class Interpreter(Visitor):
 
     def visit_classdecl(self, node: ClassDecl) -> None:
         # TODO: Work on this
-        cls = WaifuClass(node.name.value)
+        # Like in SMALLTALK classes and metaclasses are conjoined twins
+        meta_cls = WaifuClass(f"__{node.name.value}__", None)
+        cls = WaifuClass(node.name.value, meta_cls)
         self.environment.define(cls)
 
         for method in node.methods:
-            cls.add_method(method.name, WaifuFunc(method, self.environment))
+            (meta_cls if method.static else cls).add_method(
+                method.name, WaifuFunc(method, self.environment)
+            )
 
     def visit_functiondecl(self, node: FunctionDecl) -> Any:
         """Similar to an assignment statement where we have an implicit variable
@@ -398,13 +403,18 @@ class Interpreter(Visitor):
     def visit_propertyaccess(self, node: PropertyAccess) -> Any:
         # TODO: Work on this later
         obj = self.visit(node.obj)
-        if not type(obj) is WaifuObject:
+
+        if not isinstance(obj, WaifuObject):
             self._report_runtime_err(
-                RuntimeException(node.name, "Can only access properties on objects.")
+                RuntimeException(
+                    node.name, "Can only access properties on objects or classes."
+                )
             )
+
         property = obj.get(node.name)
         if type(property) is WaifuFunc:
             return property.bind(obj)
+
         return property
 
     def visit_groupingexpr(self, node: GroupingExpr) -> Any:

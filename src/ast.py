@@ -85,12 +85,18 @@ class Stmts(Stmt):
 
 class FunctionDecl(Stmt):
     def __init__(
-        self, decorator: Token, name: Token, params: List[Token], body: List[Stmt]
+        self,
+        decorator: Token,
+        name: Token,
+        params: List[Token],
+        body: List[Stmt],
+        static: bool = False,
     ) -> None:
         self.decorator = decorator
         self.name = name
         self.params = params
         self.body = body
+        self.static = static
 
 
 class ClassDecl(Stmt):

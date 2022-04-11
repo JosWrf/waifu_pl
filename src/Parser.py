@@ -148,16 +148,16 @@ class RecursiveDescentParser(Parser):
         self.match(TokenType.INDENT, "Expect indent after block creation.")
 
         methods = []
-        while self.is_type_in(TokenType.DEF):
-            methods.append(self._function_decl())
+        while self.is_type_in(TokenType.DEF, TokenType.STATIC):
+            methods.append(self._function_decl(self.is_type_in(TokenType.STATIC)))
         self.match(TokenType.DEDENT, "Expect dedent after leaving the class body.")
         return ClassDecl(name, methods)
 
-    def _function_decl(self) -> Stmt:
-        self.advance()  # consume desu token
-        return self._function()
+    def _function_decl(self, static: bool = False) -> Stmt:
+        self.advance()  # consume desu/oppai token
+        return self._function(static)
 
-    def _function(self) -> FunctionDecl:
+    def _function(self, static: bool = False) -> FunctionDecl:
         if not self.is_type_in(TokenType.IDENTIFIER):
             self._parse_error("Expect identifier after 'desu'.")
         name = self.advance()
@@ -169,7 +169,7 @@ class RecursiveDescentParser(Parser):
                 "Expect ':' for block creation after function parameters."
             )
         body = self._block_stmt()
-        return FunctionDecl(None, name, params, body)
+        return FunctionDecl(None, name, params, body, static)
 
     def _formal_params(self) -> List[Token]:
         params = []

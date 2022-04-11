@@ -52,6 +52,7 @@ class TokenType(Enum):
     NEWVAR = enum.auto()
     CLASS = enum.auto()
     THIS = enum.auto()
+    STATIC = enum.auto()
 
     EOF = enum.auto()
 
@@ -101,6 +102,7 @@ class Lexer:
         "baka": TokenType.NEWVAR,
         "waifu": TokenType.CLASS,
         "watashi": TokenType.THIS,
+        "oppai": TokenType.STATIC,
     }
 
     simple_tokens = {

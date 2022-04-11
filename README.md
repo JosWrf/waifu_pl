@@ -65,7 +65,7 @@ call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 primary        → "true" | "false" | "baito" | "watashi"
                | NUMBER | STRING | IDENTIFIER | "(" expression ");
 
-function       → "desu" IDENTIFIER "(" parameters? ")" block;
+function       → ("desu" | "oppai") IDENTIFIER "(" parameters? ")" block;
 parameters     → IDENTIFIER ( "," IDENTIFIER* );
 arguments      → expression ( "," expression* );
 decorator      → "@" IDENTIFIER NEWLINE;
@@ -75,19 +75,21 @@ decorator      → "@" IDENTIFIER NEWLINE;
 
 **Keywords and their meaning in other programming languages:**
 
-| waifu keyword |                meaning                 |
-| ------------- | :------------------------------------: |
-| nani          |              if statement              |
-| daijobu       |       else part of if statement        |
-| desu          |      function/method declaration       |
-| yandere       |               while loop               |
-| shinu         |            return statement            |
-| baito         |               null value               |
-| baka          | make new local variable when assigning |
-| yamero        |            break statement             |
-| kowai         |           continue statement           |
-| watashi       |      reference to current object       |
-| shison        |              constructor               |
+| waifu keyword |                   meaning                   |
+| ------------- | :-----------------------------------------: |
+| nani          |                if statement                 |
+| daijobu       |          else part of if statement          |
+| desu          |         function/method declaration         |
+| yandere       |                 while loop                  |
+| shinu         |              return statement               |
+| baito         |                 null value                  |
+| baka          |   make new local variable when assigning    |
+| yamero        |               break statement               |
+| kowai         |             continue statement              |
+| watashi       |         reference to current object         |
+| shison        |                 constructor                 |
+| oppai         | static method that can be called on a class |
 
 > Use baka to declare a new local variable otherwise an assignment will assign to a variable in the surrounding scope or define one
 > in the current scope if none with that name could be found.
+> Only use oppai for class mehtods.
