@@ -50,6 +50,8 @@ class TokenType(Enum):
     DEF = enum.auto()
     WHILE = enum.auto()
     NEWVAR = enum.auto()
+    CLASS = enum.auto()
+    THIS = enum.auto()
 
     EOF = enum.auto()
 
@@ -97,6 +99,8 @@ class Lexer:
         "kowai": TokenType.CONTINUE,
         "yandere": TokenType.WHILE,
         "baka": TokenType.NEWVAR,
+        "waifu": TokenType.CLASS,
+        "watashi": TokenType.THIS,
     }
 
     simple_tokens = {
@@ -336,6 +340,6 @@ class Lexer:
             self._advance()
         identifier = self.text[self.start_pos : self.curr_pos]
         if Lexer.keywords.get(identifier, None):
-            self._add_token(Lexer.keywords.get(identifier))
+            self._add_token(Lexer.keywords.get(identifier), identifier)
         else:
             self._add_token(TokenType.IDENTIFIER, identifier)

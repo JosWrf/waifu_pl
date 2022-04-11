@@ -13,10 +13,12 @@ program        → declaration* EOF ;
 
 ```ebnf
 declaration    → funDecl
+               | classDecl
                | varDecl
                | statement ;
 
-funDecl        → decorator? "desu" function ;
+funDecl        → decorator? function ;
+classDecl      → "waifu" IDENTIFIER ":" NEWLINE INDENT function* DEDENT ;
 ```
 
 [comment]: <> (after varDecl and statements instead of NEWLINE tokens i should probably also allow EOF tokens aswell.)
@@ -60,10 +62,10 @@ factor         → unary ( ( "/" | "*" ) unary )* ;
 
 unary          → ( "not" | "-" ) unary | call ;
 call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
-primary        → "true" | "false" | "baito"
+primary        → "true" | "false" | "baito" | "watashi"
                | NUMBER | STRING | IDENTIFIER | "(" expression ");
 
-function       → IDENTIFIER "(" parameters? ")" block;
+function       → "desu" IDENTIFIER "(" parameters? ")" block;
 parameters     → IDENTIFIER ( "," IDENTIFIER* );
 arguments      → expression ( "," expression* );
 decorator      → "@" IDENTIFIER NEWLINE;
@@ -84,6 +86,8 @@ decorator      → "@" IDENTIFIER NEWLINE;
 | baka          | make new local variable when assigning |
 | yamero        |            break statement             |
 | kowai         |           continue statement           |
+| watashi       |      reference to current object       |
+| shison        |              constructor               |
 
 > Use baka to declare a new local variable otherwise an assignment will assign to a variable in the surrounding scope or define one
 > in the current scope if none with that name could be found.

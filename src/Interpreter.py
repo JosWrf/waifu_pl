@@ -9,6 +9,7 @@ from src.ast import (
     BlockStmt,
     BreakStmt,
     CallExpr,
+    ClassDecl,
     ContinueStmt,
     Expr,
     ExprStmt,
@@ -17,7 +18,10 @@ from src.ast import (
     IfStmt,
     Literal,
     LogicalExpr,
+    ObjRef,
+    PropertyAccess,
     ReturnStmt,
+    SetProperty,
     Stmts,
     UnaryExpr,
     VarAccess,
@@ -45,6 +49,11 @@ class WaifuFunc(CallableObj):
         self.node = node
         self.closure = closure
 
+    def bind(self, obj: "WaifuObject"):
+        this_env = Environment(self.closure)
+        this_env.define(obj)
+        return WaifuFunc(self.node, this_env)
+
     def call(self, interpreter: "Interpreter", args: List[Any]) -> Any:
         environment = Environment(self.closure)
         for arg in args:
@@ -65,6 +74,58 @@ class WaifuFunc(CallableObj):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+class WaifuClass(CallableObj):
+    """Runtime representation of classes in the waifu language."""
+
+    def __init__(self, name) -> None:
+        self.name = name
+        self.methods = {}
+
+    def call(self, interpreter: "Interpreter", args: List[Any]) -> Any:
+        obj = WaifuObject(self)
+        constructr = self.methods.get("shison")
+        if constructr:
+            constructr.bind(obj).call(interpreter, args)
+        return obj
+
+    def arity(self) -> int:
+        constructr = self.methods.get("shison")
+        if constructr:
+            return constructr.arity()
+        return 0
+
+    def add_method(self, name: Token, method: WaifuFunc) -> None:
+        self.methods[name.value] = method
+
+    def __str__(self) -> str:
+        return f"<class {self.name}>"
+
+
+class WaifuObject:
+    """Runtime representation of objects in the waifu language."""
+
+    def __init__(self, cls: WaifuClass) -> None:
+        self.cls = cls
+        self.fields = {}
+
+    def get(self, name: Token) -> Any:
+        if name.value in self.fields:
+            return self.fields[name.value]
+
+        if name.value in self.cls.methods:
+            return self.cls.methods[name.value]
+
+        raise RuntimeException(
+            name, f"Property '{name.value}' does not exist for {self.__str__()}."
+        )
+
+    def set(self, name: Token, value: Any) -> None:
+        self.fields[name.value] = value
+
+    def __str__(self) -> str:
+        return f"<object of {self.cls.__str__()}>"
 
 
 class Interpreter(Visitor):
@@ -134,7 +195,15 @@ class Interpreter(Visitor):
         except RuntimeException as re:
             self._report_runtime_err(re)
 
-    def visit_functiondecl(self, node: FunctionDecl) -> None:
+    def visit_classdecl(self, node: ClassDecl) -> None:
+        # TODO: Work on this
+        cls = WaifuClass(node.name.value)
+        self.environment.define(cls)
+
+        for method in node.methods:
+            cls.add_method(method.name, WaifuFunc(method, self.environment))
+
+    def visit_functiondecl(self, node: FunctionDecl) -> Any:
         """Similar to an assignment statement where we have an implicit variable
         declaration that is bound to a value of evaluating an expression.
         Inner functions are only declared when an outer function is called, thus
@@ -231,6 +300,16 @@ class Interpreter(Visitor):
     def visit_exprstmt(self, node: ExprStmt) -> None:
         self.visit(node.expression)
 
+    def visit_setproperty(self, node: SetProperty) -> Any:
+        obj = self.visit(node.obj)
+        if not type(obj) is WaifuObject:
+            self._report_runtime_err(
+                RuntimeException(node.name, "Can only set properties on objects.")
+            )
+        value = self.visit(node.value)
+        obj.set(node.name, value)
+        return value
+
     def visit_assign(self, node: Assign) -> Any:
         value = self.visit(node.expression)
         if node.new_var:
@@ -316,11 +395,27 @@ class Interpreter(Visitor):
 
         return callee.call(self, args)
 
+    def visit_propertyaccess(self, node: PropertyAccess) -> Any:
+        # TODO: Work on this later
+        obj = self.visit(node.obj)
+        if not type(obj) is WaifuObject:
+            self._report_runtime_err(
+                RuntimeException(node.name, "Can only access properties on objects.")
+            )
+        property = obj.get(node.name)
+        if type(property) is WaifuFunc:
+            return property.bind(obj)
+        return property
+
     def visit_groupingexpr(self, node: GroupingExpr) -> Any:
         return self.visit(node.expression)
 
     def visit_literal(self, node: Literal) -> Any:
         return node.value
+
+    def visit_objref(self, node: ObjRef) -> WaifuObject:
+        indices = self.resolved_vars.get(node)
+        return self.environment.get_at_index(indices[0], indices[1])
 
     def visit_varaccess(self, node: VarAccess) -> Any:
         indices = self.resolved_vars.get(node)

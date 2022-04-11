@@ -10,6 +10,7 @@ from src.ast import (
     BlockStmt,
     BreakStmt,
     CallExpr,
+    ClassDecl,
     ContinueStmt,
     Expr,
     ExprStmt,
@@ -18,7 +19,11 @@ from src.ast import (
     IfStmt,
     Literal,
     LogicalExpr,
+    ObjRef,
+    PropertyAccess,
     ReturnStmt,
+    SetProperty,
+    Stmt,
     Stmts,
     UnaryExpr,
     VarAccess,
@@ -30,6 +35,13 @@ from src.visitor import Visitor
 
 class Context(enum.Enum):
     FUNCTION = enum.auto()
+    METHOD = enum.auto()
+    CONSTRUCTOR = enum.auto()
+    OTHER = enum.auto()
+
+
+class ClassContext(enum.Enum):
+    CLASS = enum.auto()
     OTHER = enum.auto()
 
 
@@ -45,7 +57,8 @@ class Resolver(Visitor):
         self.globals = {}
         self.resolved_vars = {}
         self.error_handler = error_handler
-        self.function = None
+        self.function = Context.OTHER
+        self.cls_context = ClassContext.OTHER
         self._load_stdlib("src.stdlib.stdlib")
 
     def _load_stdlib(self, mod_name: str):
@@ -118,10 +131,15 @@ class Resolver(Visitor):
         if node.new_var:
             message = f"Can't use 'baka' cause '{node.name.value}' is already defined in current scope."
             self._check_defined(node.name, message)
-        if node.new_var or not self._resolve(node.name, node):
+        if node.new_var or not self._resolve(node.name, node, True):
             self._define(node.name)
         else:
             pass
+
+    def visit_setproperty(self, node: SetProperty) -> None:
+        # TODO: Work on this later on
+        self.visit(node.obj)
+        self.visit(node.value)
 
     def visit_binaryexpr(self, node: BinaryExpr) -> None:
         self.visit(node.left)
@@ -137,6 +155,15 @@ class Resolver(Visitor):
     def visit_literal(self, node: Literal) -> None:
         return None
 
+    def visit_objref(self, node: ObjRef) -> None:
+        """Resolve this to current object. Not using True to
+        count this as being used is fine, it saves calculating
+        the hashfunction for the scope table."""
+        if self.cls_context == ClassContext.OTHER:
+            self._semantic_error(node.name, "Can only use 'watashi' in class context.")
+            return
+        self._resolve(node.name, node)
+
     def visit_varaccess(self, node: VarAccess) -> None:
         self._resolve(node.name, node, True)
 
@@ -145,12 +172,36 @@ class Resolver(Visitor):
         for arg in node.args:
             self.visit(arg)
 
+    def visit_propertyaccess(self, node: PropertyAccess) -> None:
+        """We can dynamically add fields to objects, thus we would need a runtime
+        representation of objects in the static analyzer to statically resolve."""
+        # TODO: Could make an implementation where only statically defined fields are allowed
+        self.visit(node.obj)
+
     def visit_groupingexpr(self, node: GroupingExpr) -> None:
         self.visit(node.expression)
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:
             self.visit(stmt)
+
+    def visit_classdecl(self, node: ClassDecl) -> None:
+        # TODO: Work on this later on
+        current_cls = self.cls_context
+        self.cls_context = ClassContext.CLASS
+        self._define(node.name)
+
+        self.scopes.append({"watashi": (True, None)})
+        # Method names are not defined -> not checked whether they're used in a program
+        for method in node.methods:
+            self._resolve_callable(
+                method,
+                Context.METHOD
+                if method.name.value != "shison"
+                else Context.CONSTRUCTOR,
+            )
+        self.scopes.pop()
+        self.cls_context = current_cls
 
     def visit_functiondecl(self, node: FunctionDecl) -> None:
         # Decorating functions must also be resolved
@@ -162,8 +213,12 @@ class Resolver(Visitor):
             self._check_defined(node.name, message)
             self._define(node.name)
 
+        self._resolve_callable(node, Context.FUNCTION)
+
+    def _resolve_callable(self, node: Stmt, context: Context) -> None:
+        """Auxilary method used to resolve functions/methods."""
         current_context = self.function
-        self.function = Context.FUNCTION
+        self.function = context
         self.scopes.append({param.value: (False, param) for param in node.params})
         for stmt in node.body:
             self.visit(stmt)
@@ -207,8 +262,10 @@ class Resolver(Visitor):
         return None
 
     def visit_returnstmt(self, node: ReturnStmt) -> None:
-        if self.function != Context.FUNCTION:
-            message = f"Can't use 'shinu' outside of functions."
-            self._semantic_error(node.err, message)
+        if self.function == Context.OTHER:
+            self._semantic_error(node.err, "Can't use 'shinu' outside of functions.")
+            return
+        if self.function == Context.CONSTRUCTOR:
+            self._semantic_error(node.err, "Can't use 'shinu' in constructors.")
         if node.expr:
             self.visit(node.expr)

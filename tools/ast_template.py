@@ -35,16 +35,19 @@ class {{stmt}}(Stmt):
 nodes = {
     "Expr": {
         "Assign": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],
+        "SetProperty": [("obj", "Expr"), ("name", "Token"), ("value", "Expr")],
         "BinaryExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
         "UnaryExpr": [("operator", "Token"), ("right", "Expr")],
         "GroupingExpr": [("expression", "Expr")],
         "Literal": [("value", "Any")],
+        "ObjRef": [("name", "Token")],
         "LogicalExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
         "CallExpr": [
             ("callee", "Expr"),
             ("calltoken", "Token"),
             ("args", "List[Expr]"),
         ],
+        "PropertyAccess": [("obj", "Expr"), ("name", "Token")],
         "VarAccess": [("name", "Token")],
     },
     "Stmt": {
@@ -55,6 +58,7 @@ nodes = {
             ("params", "List[Token]"),
             ("body", "List[Stmt]"),
         ],
+        "ClassDecl": [("name", "Token"), ("methods", "List[Stmt]")],
         "AssStmt": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],
         "ExprStmt": [("expression", "Expr")],
         "BlockStmt": [("stmts", "List[Stmt]")],

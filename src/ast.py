@@ -14,6 +14,13 @@ class Assign(Expr):
         self.expression = expression
 
 
+class SetProperty(Expr):
+    def __init__(self, obj: Expr, name: Token, value: Expr) -> None:
+        self.obj = obj
+        self.name = name
+        self.value = value
+
+
 class BinaryExpr(Expr):
     def __init__(self, left: Expr, operator: Token, right: Expr) -> None:
         self.left = left
@@ -37,6 +44,11 @@ class Literal(Expr):
         self.value = value
 
 
+class ObjRef(Expr):
+    def __init__(self, name: Token) -> None:
+        self.name = name
+
+
 class LogicalExpr(Expr):
     def __init__(self, left: Expr, operator: Token, right: Expr) -> None:
         self.left = left
@@ -49,6 +61,12 @@ class CallExpr(Expr):
         self.callee = callee
         self.calltoken = calltoken
         self.args = args
+
+
+class PropertyAccess(Expr):
+    def __init__(self, obj: Expr, name: Token) -> None:
+        self.obj = obj
+        self.name = name
 
 
 class VarAccess(Expr):
@@ -73,6 +91,12 @@ class FunctionDecl(Stmt):
         self.name = name
         self.params = params
         self.body = body
+
+
+class ClassDecl(Stmt):
+    def __init__(self, name: Token, methods: List[Stmt]) -> None:
+        self.name = name
+        self.methods = methods
 
 
 class AssStmt(Stmt):

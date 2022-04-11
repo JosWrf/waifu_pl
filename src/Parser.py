@@ -8,6 +8,7 @@ from src.ast import (
     BlockStmt,
     BreakStmt,
     CallExpr,
+    ClassDecl,
     ContinueStmt,
     Expr,
     ExprStmt,
@@ -15,7 +16,10 @@ from src.ast import (
     GroupingExpr,
     IfStmt,
     Literal,
+    ObjRef,
+    PropertyAccess,
     ReturnStmt,
+    SetProperty,
     Stmt,
     Stmts,
     UnaryExpr,
@@ -128,9 +132,26 @@ class RecursiveDescentParser(Parser):
                 return self._decorator()
             if self.is_type_in(TokenType.DEF):
                 return self._function_decl()
+            if self.is_type_in(TokenType.CLASS):
+                return self._class_decl()
             return self._statement()
         except UnexpectedTokenException as ue:
             self._synchronize()
+
+    def _class_decl(self) -> Stmt:
+        self.advance()  # consume waifu token
+        if not self.is_type_in(TokenType.IDENTIFIER):
+            self._parse_error("Expect identifier after 'waifu'.")
+        name = self.advance()
+        self.match(TokenType.COLON, "Expect colon after waifu.")
+        self.match(TokenType.NEWLINE, "Expect Newline character after ':'.")
+        self.match(TokenType.INDENT, "Expect indent after block creation.")
+
+        methods = []
+        while self.is_type_in(TokenType.DEF):
+            methods.append(self._function_decl())
+        self.match(TokenType.DEDENT, "Expect dedent after leaving the class body.")
+        return ClassDecl(name, methods)
 
     def _function_decl(self) -> Stmt:
         self.advance()  # consume desu token
@@ -266,33 +287,43 @@ class RecursiveDescentParser(Parser):
         self.match(TokenType.NEWLINE, message)
         return ExprStmt(expr)
 
-    def _assign_stmt(self, expr: Expr, new_var: bool = False) -> AssStmt:
+    def _assign_stmt(self, expr: Expr, new_var: bool = False) -> Stmt:
         """Wraps a sequence of assignment expressions in a statement form. If called
         from the new_var method, assignments correspond to variable definitions.
         Feels somewhat weird to separate assignments like this."""
-        if type(expr) != VarAccess:
-            self._parse_error("Can't assign to this left hand side.", False)
-        name = self.tokens[self.index - 1]
         self.advance()
-        ass_stmt = AssStmt(new_var, name, self._assign(new_var))
-        message = "Expect newline character after assignment."
-        self.match(TokenType.NEWLINE, message)
-        return ass_stmt
+        if type(expr) is VarAccess:
+            ass_stmt = AssStmt(new_var, expr.name, self._assign(new_var))
+            message = "Expect newline character after assignment."
+            self.match(TokenType.NEWLINE, message)
+            return ass_stmt
+        elif type(expr) is PropertyAccess:
+            if new_var:
+                self._parse_error("Can't use 'baka' when setting properties.", False)
+            setter = SetProperty(expr.obj, expr.name, self._assign(new_var))
+            message = "Expect newline character after setting a property."
+            self.match(TokenType.NEWLINE, message)
+            return setter
+        else:
+            self._parse_error("Can't assign to this left hand side.", False)
 
     def _assign(self, new_var: bool = False) -> Expr:
         """Expression part of an assignment. Basically the same code as in _assign_stmt."""
         expr = self._expression()
         if self.is_type_in(TokenType.ASSIGNMENT):
-            if type(expr) != VarAccess:
-                self._parse_error("Cant't assign to this left hand side.", False)
-            name = self.tokens[self.index - 1]
             self.advance()
-            expr = Assign(new_var, name, self._assign())
+            if type(expr) is VarAccess:
+                return Assign(new_var, expr.name, self._assign(new_var))
+            elif type(expr) is PropertyAccess:
+                return SetProperty(expr.obj, expr.name, self._assign(new_var))
+            else:
+                self._parse_error("Can't assign to this left hand side.", False)
+                self._assign(new_var)  # Recover from error and continue parsing
         return expr
 
     def _new_var(self) -> AssStmt:
         """Called when baka is read, then an assignment needs to communicate
-        the runtime to create a new variable in the current environment."""
+        the runtime to create a new variable in the current scope."""
         self.advance()
         expr = self._expression()
         if not self.is_type_in(TokenType.ASSIGNMENT):
@@ -359,13 +390,26 @@ class RecursiveDescentParser(Parser):
 
     def _call(self) -> Expr:
         expr = self._primary()
-        while self.is_type_in(TokenType.OP_PAR):
-            self.advance()
-            args = self._actual_params()
-            # The token does not really matter, it's only for error messages anyways
-            expr = CallExpr(expr, self.lookahead, args)
-            self.match(TokenType.CL_PAR, "Expected ')' after function call.")
+        while self.is_type_in(TokenType.OP_PAR, TokenType.DOT):
+            if self.is_type_in(TokenType.OP_PAR):
+                expr = self._handle_call(expr)
+            else:
+                expr = self._handle_property_acc(expr)
         return expr
+
+    def _handle_call(self, expr: Expr) -> CallExpr:
+        self.advance()  # consume (
+        args = self._actual_params()
+        # The token does not really matter, it's only for error messages anyways
+        expr = CallExpr(expr, self.lookahead, args)
+        self.match(TokenType.CL_PAR, "Expected ')' after function call.")
+        return expr
+
+    def _handle_property_acc(self, expr: Expr) -> PropertyAccess:
+        self.advance()  # consume dot
+        name = self.lookahead
+        self.match(TokenType.IDENTIFIER, "Expect identifier after '.'.")
+        return PropertyAccess(expr, name)
 
     def _actual_params(self) -> List[Expr]:
         args = []
@@ -400,5 +444,7 @@ class RecursiveDescentParser(Parser):
             return GroupingExpr(expr)
         if self.is_type_in(TokenType.IDENTIFIER):
             return VarAccess(self.advance())
+        if self.is_type_in(TokenType.THIS):
+            return ObjRef(self.advance())
 
         self._parse_error("Token can't be used in an expression.")
