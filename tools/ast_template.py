@@ -62,7 +62,7 @@ nodes = {
         ],
         "ClassDecl": [
             ("name", "Token"),
-            ("supercls", "VarAccess"),
+            ("supercls", "List[VarAccess]"),
             ("methods", "List[Stmt]"),
         ],
         "AssStmt": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],

@@ -18,7 +18,7 @@ declaration    → funDecl
                | statement ;
 
 funDecl        → decorator? function ;
-classDecl      → "waifu" IDENTIFIER ("neesan" IDENTIFIER)?
+classDecl      → "waifu" IDENTIFIER ("neesan" IDENTIFIER ("," IDENTIFIER)*)?
                 ":" NEWLINE INDENT function* DEDENT;
 ```
 
@@ -95,4 +95,41 @@ decorator      → "@" IDENTIFIER NEWLINE;
 
 > Use baka to declare a new local variable otherwise an assignment will assign to a variable in the surrounding scope or define one
 > in the current scope if none with that name could be found.
-> Only use oppai for class mehtods.
+> Only use oppai for class methods.
+
+### Inheritance
+
+Instead of a single superclass a list of superclasses is bound to the surrounding scope of the surrounding scope of method body using super.
+When querying methods, the first superclass in the list is preferred. That means if A inherits from B and C and finds a superclass method in B, it always returns this method. Even if C has a method with the same name. The same holds true for class methods. The search continues until all superclasses and their superclasses have been searched through or a method has been found.
+
+```python
+waifu A:
+    desu shison():
+        print("In A")
+
+waifu B neesan A:
+    desu shison():
+        print("In B")
+    oppai big():
+        print("Big in B")
+
+waifu C neesan A:
+    desu shison():
+        print("In C")
+
+    oppai big():
+        print("Big in C")
+
+waifu D neesan C,B:
+    desu shison():
+        print("In D")
+        haha.shison()
+
+d <- D()
+# Prints:
+# In D
+# In C
+D.big()
+# Prints:
+# Big in C
+```

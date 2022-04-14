@@ -107,7 +107,7 @@ class WaifuClass(WaifuObject, CallableObj):
     """Runtime representation of classes in the waifu language."""
 
     def __init__(
-        self, name: str, super_cls: "WaifuClass", meta_cls: "WaifuClass"
+        self, name: str, super_cls: List["WaifuClass"], meta_cls: "WaifuClass"
     ) -> None:
         super(WaifuClass, self).__init__(meta_cls)
         self.name = name
@@ -135,7 +135,10 @@ class WaifuClass(WaifuObject, CallableObj):
             return self.methods[name.value]
 
         if self.super_cls:
-            return self.super_cls.get_method(name)
+            for super_cls in self.super_cls:
+                method = super_cls.get_method(name)
+                if method:
+                    return method
 
     def __str__(self) -> str:
         return f"<class {self.name}>"
@@ -209,22 +212,26 @@ class Interpreter(Visitor):
             self._report_runtime_err(re)
 
     def visit_classdecl(self, node: ClassDecl) -> None:
-        # TODO: Work on this
         supercls = None
         if node.supercls:
-            supercls = self.visit(node.supercls)
-            if type(supercls) != WaifuClass:
-                self._report_runtime_err(
-                    RuntimeException(
-                        node.supercls.name, "Can only inherit from classes"
+            supercls = []
+            for cls in node.supercls:
+                sup_cls = self.visit(cls)
+                supercls.append(sup_cls)
+                if type(sup_cls) != WaifuClass:
+                    self._report_runtime_err(
+                        RuntimeException(
+                            node.supercls.name, "Can only inherit from classes"
+                        )
                     )
-                )
 
         # Like in SMALLTALK classes and metaclasses are conjoined twins
         # Add the metaclass of the superclass as superclass of the metaclass to allow
         # inheritance of class methods.
         meta_cls = WaifuClass(
-            f"__{node.name.value}__", supercls.cls if supercls else None, None
+            f"__{node.name.value}__",
+            [sup.cls for sup in supercls] if supercls else None,
+            None,
         )
         cls = WaifuClass(node.name.value, supercls, meta_cls)
         self.environment.define(cls)
@@ -232,6 +239,7 @@ class Interpreter(Visitor):
         environment = self.environment
         if node.supercls:
             environment = Environment(environment)
+            # Bind list of super classes in the methods enclosing environment
             environment.define(supercls)
 
         for method in node.methods:
@@ -432,7 +440,6 @@ class Interpreter(Visitor):
         return callee.call(self, args)
 
     def visit_propertyaccess(self, node: PropertyAccess) -> Any:
-        # TODO: Work on this later
         obj = self.visit(node.obj)
 
         if not isinstance(obj, WaifuObject):
@@ -460,19 +467,24 @@ class Interpreter(Visitor):
 
     def visit_superref(self, node: SuperRef) -> WaifuFunc:
         """Acts like a mixture of a getter and this reference."""
-        # Obtain the super class instance
+        # Obtain the list of super class instances
         indices = self.resolved_vars.get(node)
-        super_cls = self.environment.get_at_index(indices[0], indices[1])
+        super_clsses = self.environment.get_at_index(indices[0], indices[1])
 
         # Get this from the object where the method referencing super was called;
         # it's right between super and the scope of the method body
         this = self.environment.get_at_index(indices[0] - 1, indices[1])
 
-        method = super_cls.get_method(node.name)
+        for super_cls in super_clsses:
+            method = super_cls.get_method(node.name)
+            if method:
+                break
+
         if not method:
             self._report_runtime_err(
                 RuntimeException(
-                    node.super, f"No method {node.name.value} in {super_cls}."
+                    node.super,
+                    f"No method {node.name.value} found in list of superclasses.",
                 )
             )
         return method.bind(this)

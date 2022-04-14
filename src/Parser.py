@@ -147,12 +147,9 @@ class RecursiveDescentParser(Parser):
 
         supercls = None
         if self.is_type_in(TokenType.EXTENDS):
-            self.advance()
-            if not self.is_type_in(TokenType.IDENTIFIER):
-                self._parse_error("Expect identifier after 'neesan'.")
-            supercls = VarAccess(self.advance())
+            supercls = self._parse_superclasses()
 
-        self.match(TokenType.COLON, "Expect colon after waifu.")
+        self.match(TokenType.COLON, "Expect colon after waifu declaration.")
         self.match(TokenType.NEWLINE, "Expect Newline character after ':'.")
         self.match(TokenType.INDENT, "Expect indent after block creation.")
 
@@ -161,6 +158,20 @@ class RecursiveDescentParser(Parser):
             methods.append(self._function_decl(self.is_type_in(TokenType.STATIC)))
         self.match(TokenType.DEDENT, "Expect dedent after leaving the class body.")
         return ClassDecl(name, supercls, methods)
+
+    def _parse_superclasses(self) -> List[VarAccess]:
+        self.advance()  # consume neesan token
+        supercls = []
+        if not self.is_type_in(TokenType.IDENTIFIER):
+            self._parse_error("Expect identifier after 'neesan'.")
+        supercls.append(VarAccess(self.advance()))
+        while self.is_type_in(TokenType.COMMA):
+            self.advance()
+            if self.is_type_in(TokenType.IDENTIFIER):
+                supercls.append(VarAccess(self.advance()))
+            else:
+                self._parse_error("Expect identifier after ',' in neesan clause.")
+        return supercls
 
     def _function_decl(self, static: bool = False) -> Stmt:
         self.advance()  # consume desu/oppai token

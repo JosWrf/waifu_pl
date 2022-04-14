@@ -205,11 +205,12 @@ class Resolver(Visitor):
 
         if node.supercls:
             self.cls_context = ClassContext.SUBCLASS
-            if node.supercls.name.value == node.name.value:
+            if node.name.value in [val.name.value for val in node.supercls]:
                 self._semantic_error(
                     node.supercls.name, "Classes can't be their own superclass."
                 )
-            self.visit(node.supercls)
+            for supercls in node.supercls:
+                self.visit(supercls)
 
             self.scopes.append({"haha": (True, None)})
 

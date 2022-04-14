@@ -89,7 +89,7 @@ class TestResolver:
         resolved = list(self.resolved_vars.values())
         # x is resolved to global scope
         assert resolved[0][0] == 0
-        # haha is resolved to scope ´surrounding this-scope and method body scope
+        # haha is resolved to scope surrounding this-scope and method body scope
         assert resolved[1] == (2, 0)
 
     def test_this_error(self):

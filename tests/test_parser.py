@@ -781,9 +781,11 @@ class TestParser:
         assert nodes.stmts[0].methods[0].static
         assert not self.error_handler.error.called
 
-    def test_single_inheritance(self):
-        self._setup("waifu y neesan x:\n desu f():\n  17\n")
+    def test_multiple_inheritance(self):
+        self._setup("waifu y neesan x,z:\n desu f():\n  17\n")
         nodes = self.parser.parse()
 
-        assert nodes.stmts[0].supercls.name.value == "x"
+        super_names = [node.name.value for node in nodes.stmts[0].supercls]
+        expected = ["x", "z"]
         assert not self.error_handler.error.called
+        assert super_names == expected
