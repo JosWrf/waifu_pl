@@ -49,6 +49,12 @@ class ObjRef(Expr):
         self.name = name
 
 
+class SuperRef(Expr):
+    def __init__(self, super: Token, name: Token) -> None:
+        self.super = super
+        self.name = name
+
+
 class LogicalExpr(Expr):
     def __init__(self, left: Expr, operator: Token, right: Expr) -> None:
         self.left = left
@@ -100,8 +106,9 @@ class FunctionDecl(Stmt):
 
 
 class ClassDecl(Stmt):
-    def __init__(self, name: Token, methods: List[Stmt]) -> None:
+    def __init__(self, name: Token, supercls: VarAccess, methods: List[Stmt]) -> None:
         self.name = name
+        self.supercls = supercls
         self.methods = methods
 
 

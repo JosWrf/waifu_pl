@@ -23,6 +23,7 @@ from src.ast import (
     ReturnStmt,
     SetProperty,
     Stmts,
+    SuperRef,
     UnaryExpr,
     VarAccess,
     WhileStmt,
@@ -87,8 +88,9 @@ class WaifuObject:
         if name.value in self.fields:
             return self.fields[name.value]
 
-        if name.value in self.cls.methods:
-            return self.cls.methods[name.value]
+        method = self.cls.get_method(name)
+        if method:
+            return method
 
         raise RuntimeException(
             name, f"Property '{name.value}' does not exist for {self.__str__()}."
@@ -104,9 +106,12 @@ class WaifuObject:
 class WaifuClass(WaifuObject, CallableObj):
     """Runtime representation of classes in the waifu language."""
 
-    def __init__(self, name: str, meta_cls: "WaifuClass") -> None:
+    def __init__(
+        self, name: str, super_cls: "WaifuClass", meta_cls: "WaifuClass"
+    ) -> None:
         super(WaifuClass, self).__init__(meta_cls)
         self.name = name
+        self.super_cls = super_cls
         self.methods = {}
 
     def call(self, interpreter: "Interpreter", args: List[Any]) -> Any:
@@ -124,6 +129,13 @@ class WaifuClass(WaifuObject, CallableObj):
 
     def add_method(self, name: Token, method: WaifuFunc) -> None:
         self.methods[name.value] = method
+
+    def get_method(self, name: Token) -> WaifuFunc:
+        if name.value in self.methods:
+            return self.methods[name.value]
+
+        if self.super_cls:
+            return self.super_cls.get_method(name)
 
     def __str__(self) -> str:
         return f"<class {self.name}>"
@@ -198,14 +210,33 @@ class Interpreter(Visitor):
 
     def visit_classdecl(self, node: ClassDecl) -> None:
         # TODO: Work on this
+        supercls = None
+        if node.supercls:
+            supercls = self.visit(node.supercls)
+            if type(supercls) != WaifuClass:
+                self._report_runtime_err(
+                    RuntimeException(
+                        node.supercls.name, "Can only inherit from classes"
+                    )
+                )
+
         # Like in SMALLTALK classes and metaclasses are conjoined twins
-        meta_cls = WaifuClass(f"__{node.name.value}__", None)
-        cls = WaifuClass(node.name.value, meta_cls)
+        # Add the metaclass of the superclass as superclass of the metaclass to allow
+        # inheritance of class methods.
+        meta_cls = WaifuClass(
+            f"__{node.name.value}__", supercls.cls if supercls else None, None
+        )
+        cls = WaifuClass(node.name.value, supercls, meta_cls)
         self.environment.define(cls)
+
+        environment = self.environment
+        if node.supercls:
+            environment = Environment(environment)
+            environment.define(supercls)
 
         for method in node.methods:
             (meta_cls if method.static else cls).add_method(
-                method.name, WaifuFunc(method, self.environment)
+                method.name, WaifuFunc(method, environment)
             )
 
     def visit_functiondecl(self, node: FunctionDecl) -> Any:
@@ -426,6 +457,25 @@ class Interpreter(Visitor):
     def visit_objref(self, node: ObjRef) -> WaifuObject:
         indices = self.resolved_vars.get(node)
         return self.environment.get_at_index(indices[0], indices[1])
+
+    def visit_superref(self, node: SuperRef) -> WaifuFunc:
+        """Acts like a mixture of a getter and this reference."""
+        # Obtain the super class instance
+        indices = self.resolved_vars.get(node)
+        super_cls = self.environment.get_at_index(indices[0], indices[1])
+
+        # Get this from the object where the method referencing super was called;
+        # it's right between super and the scope of the method body
+        this = self.environment.get_at_index(indices[0] - 1, indices[1])
+
+        method = super_cls.get_method(node.name)
+        if not method:
+            self._report_runtime_err(
+                RuntimeException(
+                    node.super, f"No method {node.name.value} in {super_cls}."
+                )
+            )
+        return method.bind(this)
 
     def visit_varaccess(self, node: VarAccess) -> Any:
         indices = self.resolved_vars.get(node)

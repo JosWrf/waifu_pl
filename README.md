@@ -18,7 +18,8 @@ declaration    → funDecl
                | statement ;
 
 funDecl        → decorator? function ;
-classDecl      → "waifu" IDENTIFIER ":" NEWLINE INDENT function* DEDENT ;
+classDecl      → "waifu" IDENTIFIER ("neesan" IDENTIFIER)?
+                ":" NEWLINE INDENT function* DEDENT;
 ```
 
 [comment]: <> (after varDecl and statements instead of NEWLINE tokens i should probably also allow EOF tokens aswell.)
@@ -62,7 +63,7 @@ factor         → unary ( ( "/" | "*" ) unary )* ;
 
 unary          → ( "not" | "-" ) unary | call ;
 call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
-primary        → "true" | "false" | "baito" | "watashi"
+primary        → "true" | "false" | "baito" | "watashi" | "haha" "." IDENTIFIER
                | NUMBER | STRING | IDENTIFIER | "(" expression ");
 
 function       → ("desu" | "oppai") IDENTIFIER "(" parameters? ")" block;
@@ -89,6 +90,8 @@ decorator      → "@" IDENTIFIER NEWLINE;
 | watashi       |         reference to current object         |
 | shison        |                 constructor                 |
 | oppai         | static method that can be called on a class |
+| neesan        |               extends clause                |
+| haha          | get access to superclass properties (super) |
 
 > Use baka to declare a new local variable otherwise an assignment will assign to a variable in the surrounding scope or define one
 > in the current scope if none with that name could be found.

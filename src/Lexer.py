@@ -53,6 +53,8 @@ class TokenType(Enum):
     CLASS = enum.auto()
     THIS = enum.auto()
     STATIC = enum.auto()
+    EXTENDS = enum.auto()
+    SUPER = enum.auto()
 
     EOF = enum.auto()
 
@@ -103,6 +105,8 @@ class Lexer:
         "waifu": TokenType.CLASS,
         "watashi": TokenType.THIS,
         "oppai": TokenType.STATIC,
+        "neesan": TokenType.EXTENDS,
+        "haha": TokenType.SUPER,
     }
 
     simple_tokens = {

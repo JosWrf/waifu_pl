@@ -25,6 +25,8 @@ class TestLexer:
             ("waifu", [TokenType.CLASS, TokenType.EOF]),
             ("watashi", [TokenType.THIS, TokenType.EOF]),
             ("oppai", [TokenType.STATIC, TokenType.EOF]),
+            ("neesan", [TokenType.EXTENDS, TokenType.EOF]),
+            ("haha", [TokenType.SUPER, TokenType.EOF]),
         ],
     )
     def test_simple_tokens(self, test_input, expected):

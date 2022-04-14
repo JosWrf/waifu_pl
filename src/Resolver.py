@@ -25,6 +25,7 @@ from src.ast import (
     SetProperty,
     Stmt,
     Stmts,
+    SuperRef,
     UnaryExpr,
     VarAccess,
     WhileStmt,
@@ -42,6 +43,7 @@ class Context(enum.Enum):
 
 class ClassContext(enum.Enum):
     CLASS = enum.auto()
+    SUBCLASS = enum.auto()
     OTHER = enum.auto()
 
 
@@ -164,6 +166,14 @@ class Resolver(Visitor):
             return
         self._resolve(node.name, node)
 
+    def visit_superref(self, node: SuperRef) -> None:
+        """Resolve super to the current superclass object."""
+        if self.cls_context != ClassContext.SUBCLASS:
+            self._semantic_error(
+                node.super, "Can only use 'haha' inside methods of subclasses."
+            )
+        self._resolve(node.super, node)
+
     def visit_varaccess(self, node: VarAccess) -> None:
         self._resolve(node.name, node, True)
 
@@ -191,6 +201,16 @@ class Resolver(Visitor):
         self.cls_context = ClassContext.CLASS
         self._define(node.name)
 
+        if node.supercls:
+            self.cls_context = ClassContext.SUBCLASS
+            if node.supercls.name.value == node.name.value:
+                self._semantic_error(
+                    node.supercls.name, "Classes can't be their own superclass."
+                )
+            self.visit(node.supercls)
+
+            self.scopes.append({"haha": (True, None)})
+
         self.scopes.append({"watashi": (True, None)})
         # Method names are not defined -> not checked whether they're used in a program
         for method in node.methods:
@@ -201,6 +221,8 @@ class Resolver(Visitor):
                 else Context.CONSTRUCTOR,
             )
         self.scopes.pop()
+        if node.supercls:
+            self.scopes.pop()
         self.cls_context = current_cls
 
     def visit_functiondecl(self, node: FunctionDecl) -> None:

@@ -22,6 +22,7 @@ from src.ast import (
     SetProperty,
     Stmt,
     Stmts,
+    SuperRef,
     UnaryExpr,
     VarAccess,
     WhileStmt,
@@ -143,6 +144,14 @@ class RecursiveDescentParser(Parser):
         if not self.is_type_in(TokenType.IDENTIFIER):
             self._parse_error("Expect identifier after 'waifu'.")
         name = self.advance()
+
+        supercls = None
+        if self.is_type_in(TokenType.EXTENDS):
+            self.advance()
+            if not self.is_type_in(TokenType.IDENTIFIER):
+                self._parse_error("Expect identifier after 'neesan'.")
+            supercls = VarAccess(self.advance())
+
         self.match(TokenType.COLON, "Expect colon after waifu.")
         self.match(TokenType.NEWLINE, "Expect Newline character after ':'.")
         self.match(TokenType.INDENT, "Expect indent after block creation.")
@@ -151,7 +160,7 @@ class RecursiveDescentParser(Parser):
         while self.is_type_in(TokenType.DEF, TokenType.STATIC):
             methods.append(self._function_decl(self.is_type_in(TokenType.STATIC)))
         self.match(TokenType.DEDENT, "Expect dedent after leaving the class body.")
-        return ClassDecl(name, methods)
+        return ClassDecl(name, supercls, methods)
 
     def _function_decl(self, static: bool = False) -> Stmt:
         self.advance()  # consume desu/oppai token
@@ -446,5 +455,11 @@ class RecursiveDescentParser(Parser):
             return VarAccess(self.advance())
         if self.is_type_in(TokenType.THIS):
             return ObjRef(self.advance())
+        if self.is_type_in(TokenType.SUPER):
+            sup = self.advance()
+            self.match(TokenType.DOT, "Expect '.' after 'haha'.")
+            if not self.is_type_in(TokenType.IDENTIFIER):
+                self._parse_error("Expect identifier after 'haha.'.")
+            return SuperRef(sup, self.advance())
 
         self._parse_error("Token can't be used in an expression.")

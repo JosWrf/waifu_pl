@@ -41,6 +41,7 @@ nodes = {
         "GroupingExpr": [("expression", "Expr")],
         "Literal": [("value", "Any")],
         "ObjRef": [("name", "Token")],
+        "SuperRef": [("super", "Token"), ("name", "Token")],
         "LogicalExpr": [("left", "Expr"), ("operator", "Token"), ("right", "Expr")],
         "CallExpr": [
             ("callee", "Expr"),
@@ -59,7 +60,11 @@ nodes = {
             ("body", "List[Stmt]"),
             ("static", "bool = False"),
         ],
-        "ClassDecl": [("name", "Token"), ("methods", "List[Stmt]")],
+        "ClassDecl": [
+            ("name", "Token"),
+            ("supercls", "VarAccess"),
+            ("methods", "List[Stmt]"),
+        ],
         "AssStmt": [("new_var", "bool"), ("name", "Token"), ("expression", "Expr")],
         "ExprStmt": [("expression", "Expr")],
         "BlockStmt": [("stmts", "List[Stmt]")],
