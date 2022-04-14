@@ -78,7 +78,7 @@ class Resolver(Visitor):
 
     def _check_defined(self, name: Token, message: str) -> None:
         """Called when baka is in front of assignment statements or assigns.
-        Also called when local functions with names. Top-level functions
+        Also called for local functions with names. Top-level functions
         may be redeclared."""
         for scope in self.scopes:
             if name.value in scope:
@@ -97,17 +97,21 @@ class Resolver(Visitor):
         """Called everytime a block is popped of the scope stack."""
         self.unused_vars += [used[1] for used in scope.values() if not used[0]]
 
-    def resolve(self, node: Stmts) -> Dict[Expr, int]:
+    def resolve(self, node: Stmts) -> Dict[Expr, Tuple[int, int]]:
+        """Entry point for the next pipeline stage after generating the ast."""
         self.visit(node)
         self._check_unused(self.globals)
         self._report_unused()
         return self.resolved_vars
 
-    def _define(self, name: Token) -> None:
+    def _define(self, name: Token, use: bool = False) -> None:
+        """Use should only be set to True when defining functions and
+        classes. Not using them is not a mistake, especially if modules
+        are supported."""
         if self.scopes:
-            self.scopes[-1][name.value] = (False, name)
+            self.scopes[-1][name.value] = (use, name)
         else:
-            self.globals[name.value] = (False, name)
+            self.globals[name.value] = (use, name)
 
     def _resolve(self, name: Token, node: Any, use=False) -> bool:
         """Assigning to a variable does not do shit if it's not read at some point."""
@@ -139,7 +143,6 @@ class Resolver(Visitor):
             pass
 
     def visit_setproperty(self, node: SetProperty) -> None:
-        # TODO: Work on this later on
         self.visit(node.obj)
         self.visit(node.value)
 
@@ -185,7 +188,6 @@ class Resolver(Visitor):
     def visit_propertyaccess(self, node: PropertyAccess) -> None:
         """We can dynamically add fields to objects, thus we would need a runtime
         representation of objects in the static analyzer to statically resolve."""
-        # TODO: Could make an implementation where only statically defined fields are allowed
         self.visit(node.obj)
 
     def visit_groupingexpr(self, node: GroupingExpr) -> None:
@@ -196,10 +198,10 @@ class Resolver(Visitor):
             self.visit(stmt)
 
     def visit_classdecl(self, node: ClassDecl) -> None:
-        # TODO: Work on this later on
         current_cls = self.cls_context
         self.cls_context = ClassContext.CLASS
-        self._define(node.name)
+        # Classes are marked as used when defined
+        self._define(node.name, True)
 
         if node.supercls:
             self.cls_context = ClassContext.SUBCLASS
@@ -233,7 +235,8 @@ class Resolver(Visitor):
         if node.name.value != "":
             message = f"Can not redefine function as '{node.name.value}' already exists in current scope."
             self._check_defined(node.name, message)
-            self._define(node.name)
+            # Functions will be marked as used when defined
+            self._define(node.name, True)
 
         self._resolve_callable(node, Context.FUNCTION)
 

@@ -11,6 +11,7 @@ from src.ast import (
     BlockStmt,
     BreakStmt,
     CallExpr,
+    ClassDecl,
     ContinueStmt,
     Expr,
     ExprStmt,
@@ -19,9 +20,13 @@ from src.ast import (
     IfStmt,
     Literal,
     LogicalExpr,
+    ObjRef,
+    PropertyAccess,
     ReturnStmt,
+    SetProperty,
     Stmt,
     Stmts,
+    SuperRef,
     UnaryExpr,
     VarAccess,
     WhileStmt,
@@ -36,6 +41,9 @@ class ASTNodeComparator(Visitor):
 
     def visit_assign(self, node: Assign) -> Tuple[Expr]:
         return (node.expression,)
+
+    def visit_setproperty(self, node: SetProperty) -> Tuple[Expr, Expr]:
+        return (node.obj, node.value)
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Tuple[Expr, Expr]:
         return (node.left, node.right)
@@ -55,11 +63,23 @@ class ASTNodeComparator(Visitor):
     def visit_callexpr(self, node: CallExpr) -> List[Expr]:
         return [node.callee] + node.args
 
+    def visit_propertyaccess(self, node: PropertyAccess) -> Tuple[Expr]:
+        return [node.obj]
+
+    def visit_objref(self, node: ObjRef) -> Tuple[()]:
+        return ()
+
+    def visit_superref(self, node: SuperRef) -> Tuple[()]:
+        return ()
+
     def visit_groupingexpr(self, node: GroupingExpr) -> Tuple[Expr]:
         return (node.expression,)
 
     def visit_stmts(self, node: Stmts) -> List[Stmt]:
         return node.stmts
+
+    def visit_classdecl(self, node: ClassDecl) -> List[Stmt]:
+        return [node.supercls] if node.supercls else [] + node.methods
 
     def visit_functiondecl(self, node: FunctionDecl) -> List[Stmt]:
         return node.body
@@ -133,9 +153,19 @@ class TestParser:
         self.parser.parse()
         assert self.error_handler.error.called
 
-    @pytest.mark.skip(reason="This is not implemented yet.")
     def test_synchronization(self):
-        pass
+        self._setup("a <- 12 <- 4\na\n")
+        nodes = self.parser.parse()
+        # Continue parsing the rhs of the assignment although the
+        # assignment target is invalid.
+        expected = Stmts(
+            [
+                AssStmt(False, Token(None, 0, TokenType.IDENTIFIER), Literal(12)),
+                ExprStmt(VarAccess(Token(None, 0, TokenType.IDENTIFIER))),
+            ]
+        )
+        assert self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
 
     def test_on_empty_input(self):
         self._setup("")
@@ -627,3 +657,133 @@ class TestParser:
         nodes = self.parser.parse()
         assert not self.error_handler.error.called
         assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_class_declaration(self):
+        self._setup("waifu y:\n desu f():\n  17\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                ClassDecl(
+                    Token(None, 0, TokenType.IDENTIFIER),
+                    None,
+                    [
+                        FunctionDecl(
+                            None,
+                            Token(None, 0, TokenType.IDENTIFIER),
+                            [],
+                            [ExprStmt(Literal(17))],
+                            False,
+                        )
+                    ],
+                )
+            ]
+        )
+
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_method_call(self):
+        self._setup("f.g()\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                ExprStmt(
+                    CallExpr(
+                        PropertyAccess(
+                            VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                            Token(None, 0, TokenType.IDENTIFIER),
+                        ),
+                        Token(None, 0, TokenType.OP_PAR),
+                        [],
+                    )
+                )
+            ]
+        )
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_property_access(self):
+        self._setup("a.b\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                ExprStmt(
+                    PropertyAccess(
+                        VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                        Token(None, 0, TokenType.IDENTIFIER),
+                    )
+                )
+            ]
+        )
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_set_property_error(self):
+        self._setup("baka a.b <- 2\n")
+        self.parser.parse()
+        assert self.error_handler.error.called
+
+    def test_set_property(self):
+        self._setup("set.prop <- 100\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                SetProperty(
+                    VarAccess(Token(None, 0, TokenType.IDENTIFIER)),
+                    Token(None, 0, TokenType.IDENTIFIER),
+                    Literal(100),
+                )
+            ]
+        )
+
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_object_reference(self):
+        self._setup("watashi.m\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                ExprStmt(
+                    PropertyAccess(
+                        ObjRef(Token(None, 0, TokenType.THIS)),
+                        Token(None, 0, TokenType.IDENTIFIER),
+                    )
+                )
+            ]
+        )
+
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_super_reference(self):
+        self._setup("haha.id\n")
+        nodes = self.parser.parse()
+        expected = Stmts(
+            [
+                ExprStmt(
+                    SuperRef(
+                        Token(None, 0, TokenType.SUPER),
+                        Token(None, 0, TokenType.IDENTIFIER),
+                    )
+                )
+            ]
+        )
+
+        assert not self.error_handler.error.called
+        assert self.comparator.compare_nodes(nodes, expected)
+
+    def test_static_methods(self):
+        self._setup("waifu y:\n oppai f():\n  17\n")
+        nodes = self.parser.parse()
+
+        # The static field of the FunctionDeclaration object should be set
+        assert nodes.stmts[0].methods[0].static
+        assert not self.error_handler.error.called
+
+    def test_single_inheritance(self):
+        self._setup("waifu y neesan x:\n desu f():\n  17\n")
+        nodes = self.parser.parse()
+
+        assert nodes.stmts[0].supercls.name.value == "x"
+        assert not self.error_handler.error.called

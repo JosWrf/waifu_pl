@@ -1,6 +1,5 @@
 from unittest.mock import create_autospec
 
-import pytest
 from src.Lexer import Lexer
 from src.Parser import RecursiveDescentParser
 from src.Resolver import Resolver
@@ -56,7 +55,7 @@ class TestResolver:
         self._setup("unused <- 4\nsame <- unused\n")
         assert self.error_handler.error.called
 
-        self._setup("desu g(f):\n  f()\n@g\ndesu h():\n  print(baito)\nh()\n")
+        self._setup("desu g(f):\n  f()\n@g\ndesu h():\n  print(baito)\n")
         assert not self.error_handler.error.called
 
     def test_function_redeclaration(self):
@@ -66,3 +65,39 @@ class TestResolver:
         # Global function redclarations are allowed
         self._setup("desu g():\n g()\ndesu g():\n g()\n")
         assert not self.error_handler.error.called
+
+    def test_class_declaration(self):
+        self._setup("waifu y:\n desu f():\n  watashi\n")
+
+        assert not self.error_handler.error.called
+        # Class y is defined in global scope
+        assert self.resolver.globals["y"]
+        # watashi is resolved to scope surrounding f()'s body
+        this_ref = list(self.resolved_vars.values())[0]
+        assert this_ref == (1, 0)
+
+    def test_supercls_declaration(self):
+        self._setup(
+            "waifu x:\n desu g():\n  shinu\nwaifu y neesan x:\n desu f():\n  haha.g()\n"
+        )
+
+        assert not self.error_handler.error.called
+        # Classes x,y is defined in global scope
+        assert self.resolver.globals["x"]
+        assert self.resolver.globals["y"]
+
+        resolved = list(self.resolved_vars.values())
+        # x is resolved to global scope
+        assert resolved[0][0] == 0
+        # haha is resolved to scope ´surrounding this-scope and method body scope
+        assert resolved[1] == (2, 0)
+
+    def test_this_error(self):
+        # Watashi may only be called in classes
+        self._setup("watashi\n")
+        assert self.error_handler.error.called
+
+    def test_super_error(self):
+        self._setup("waifu c:\n desu h():\n  haha.f()\n")
+        # Can only call haha in subclasses
+        assert self.error_handler.error.called
