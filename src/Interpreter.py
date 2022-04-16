@@ -234,7 +234,7 @@ class Interpreter(Visitor):
             None,
         )
         cls = WaifuClass(node.name.value, supercls, meta_cls)
-        self.environment.define(cls)
+        self.environment.define_resolved(cls, self.resolved_vars.get(node))
 
         environment = self.environment
         if node.supercls:
@@ -261,15 +261,15 @@ class Interpreter(Visitor):
         if node.decorator:
             self._decorated_function(node)
         else:
-            self.environment.define(func)
+            self.environment.define_resolved(func, self.resolved_vars.get(node))
 
     def _decorated_function(self, node: FunctionDecl) -> None:
-        indices = self.resolved_vars.get(node)
+        indices = self.resolved_vars.get(node.decorator)
         if indices is None:
             self._report_runtime_err(
                 RuntimeException(
-                    node.decorator,
-                    f"Decorating function '{node.decorator.value}' does not exist.",
+                    node.decorator.name,
+                    f"Decorating function '{node.decorator.name.value}' does not exist.",
                 )
             )
         dec_func = self.environment.get_at_index(indices[0], indices[1])
@@ -287,7 +287,7 @@ class Interpreter(Visitor):
         # Wrapper function stores function object in its closure
         wrapper = dec_func.call(self, [WaifuFunc(node, self.environment)])
 
-        self.environment.define(wrapper)
+        self.environment.define_resolved(wrapper, self.resolved_vars.get(node))
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:

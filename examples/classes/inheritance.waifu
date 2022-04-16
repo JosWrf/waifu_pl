@@ -1,0 +1,27 @@
+waifu yuki:
+    desu testament(n):
+        nani n > 0:
+            print("yukki kakui")
+            watashi.testament(n-1)
+        shinu
+
+    oppai nee_san():
+        print("onee san")
+
+waifu kurumi neesan yuki:
+
+    desu testament(n):
+        print(n)
+
+    desu call_super_testament(n):
+        haha.testament(n)
+
+sister <- kurumi()
+sister.call_super_testament(2)
+# watashi binds to sister, so testament in yuki calls testament in kurumi
+# expect: yukki kakui
+# expect: 1
+
+sister.testament(1) # expect: 1
+# class method is also inherited and can only be called on classes
+kurumi.nee_san() # expect: onee san

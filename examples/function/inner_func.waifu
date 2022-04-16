@@ -1,0 +1,11 @@
+desu makeCounter():
+    baka j <- 0
+    # This function will be declared by the time makeCounter() is executed
+    desu count():
+        j <- j + 1
+        print(j)
+    shinu count
+
+counter <- makeCounter()
+counter() # expect: 1
+counter() # expect: 2

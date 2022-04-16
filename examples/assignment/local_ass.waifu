@@ -1,0 +1,6 @@
+a <- 5
+nani a > 4:
+    baka a <- 2 
+    print(a) # expect: 2
+
+print(a) # expect: 5

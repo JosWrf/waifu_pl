@@ -1,0 +1,29 @@
+waifu A:
+    desu shison():
+        print("In A")
+
+waifu B neesan A:
+    desu shison():
+        print("In B")
+    oppai big():
+        print("Big in B")
+
+waifu C neesan A:
+    desu shison():
+        print("In C")
+
+    oppai big():
+        print("Big in C")
+
+waifu D neesan C,B:
+    desu shison():
+        print("In D")
+        haha.shison()
+
+d <- D()
+# expect: In D
+# expect: In C
+d
+
+D.big()
+# expect: Big in C

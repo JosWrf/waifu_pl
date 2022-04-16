@@ -1,0 +1,13 @@
+waifu yuki:
+    
+    oppai nee_san():
+        print("onee san")
+
+    oppai ni_nee_san():
+        print("ni san")
+        watashi.nee_san()
+
+yuki.nee_san() # expect: onee san
+yuki.ni_nee_san() 
+# expect: ni san
+# expect: onee san

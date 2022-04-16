@@ -1,0 +1,8 @@
+desu fib(n):
+    nani n <= 1:
+        shinu n
+    daijobu:
+        shinu fib(n-2) + fib(n-1)
+
+print(fib(1)) # expect: 1
+print(fib(7)) # expect: 13

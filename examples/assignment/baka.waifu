@@ -1,0 +1,5 @@
+baka a <- 5
+print(a) # expect: 5
+
+baka a <- a
+print(a) # expect: 5

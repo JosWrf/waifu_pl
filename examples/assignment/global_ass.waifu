@@ -1,0 +1,6 @@
+a <- "one"
+nani a:
+    a <- "two" 
+    print(a) # expect: two
+
+print(a) # expect: two

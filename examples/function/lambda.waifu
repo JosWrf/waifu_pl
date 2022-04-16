@@ -1,0 +1,6 @@
+ano <- ? x,y : x + y
+
+print(ano(1,2)) # expect: 3
+
+ano2 <- ? x : ? : 2*x
+print(ano2(2)()) # expect: 4

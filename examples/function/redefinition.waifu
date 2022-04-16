@@ -1,0 +1,13 @@
+desu f():
+    print(2)
+
+f() # expect: 2
+
+desu f():
+    print(3)
+f() # expect: 3
+
+desu g():
+    print("In G.")
+
+g() # expect: In G.

@@ -214,7 +214,7 @@ class RecursiveDescentParser(Parser):
         name = self.advance()
         self.match(TokenType.NEWLINE, "Expect newline after decorator.")
         func = self._function_decl()
-        func.decorator = name
+        func.decorator = VarAccess(name)
         return func
 
     def _statement(self) -> Stmt:

@@ -1,0 +1,16 @@
+a <- "hey"
+nani baito:
+    a <- "bad"
+    print("never reached")
+daijobu:
+    print(a) # expect: hey
+
+
+nani not baito:
+
+    nani "no dangling else problem":
+        print("good") # expect: good
+
+    daijobu:
+        print("bad")
+        

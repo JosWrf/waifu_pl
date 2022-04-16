@@ -2,7 +2,7 @@ import subprocess
 import os
 from pathlib import Path
 import re
-from typing import List
+from typing import List, Tuple
 from termcolor import colored, cprint
 
 
@@ -22,7 +22,7 @@ class TestResult:
 
     def add_failed(self, test_name: str, message: str):
         self.failed += 1
-        failed = colored((" " if test_name else "") + "FAILED", "red", attrs=["bold"])
+        failed = colored(("" if test_name else " ") + "FAILED", "red", attrs=["bold"])
         message = colored(message, "red")
         message = test_name + failed + " " + message
         self.messages.append(message)
@@ -88,7 +88,7 @@ class Test:
                 if expected.output != line:
                     self.results.add_failed(
                         f"[expected{num_expected}] ",
-                        f"At line {expected.line}: Expected {expected.output} but got {line}.",
+                        f"At line {expected.line}: Expected '{expected.output}' but got '{line}'.",
                     )
                 else:
                     self.results.add_passed(f"[expected{num_expected}]")
@@ -102,7 +102,7 @@ class Test:
             expected = self.expected_output[num_expected]
             self.results.add_failed(
                 f"[expected{num_expected}] ",
-                f"At line {expected.line}: Expected {expected.output} but got None.",
+                f"At line {expected.line}: Expected '{expected.output}' but got None.",
             )
             num_expected += 1
 
@@ -134,11 +134,12 @@ class Suite:
             test = Test(name, abs_path)
             self.tests.append(test)
 
-    def run_tests(self) -> None:
+    def run_tests(self) -> Tuple[int, int]:
         for test in self.tests:
             result = test.run()
             self.create_test_summary(result, test)
         self.report_suite_summary()
+        return (self.passed, self.failed)
 
     def create_test_summary(self, result: TestResult, test: Test) -> None:
         self.failed += result.failed
@@ -159,6 +160,9 @@ class TestHarness:
 
     def __init__(self) -> None:
         self.suites = []
+        self.failed = 0
+        self.passed = 0
+        self.suites_passed = 0
 
     def load_suite(self, name: str, path: str) -> None:
         suite = Suite(name, path)
@@ -167,7 +171,18 @@ class TestHarness:
 
     def run_test_cases(self) -> None:
         for suite in self.suites:
-            suite.run_tests()
+            passed, failed = suite.run_tests()
+            self.failed += failed
+            self.passed += passed
+            if self.failed == 0:
+                self.suites_passed += 1
+        self.report_suite_summary()
+
+    def report_suite_summary(self) -> None:
+        cprint(
+            f"Suites passed total: {self.suites_passed} / {len(self.suites)}", "blue"
+        )
+        cprint(f"Tests passed total: {self.passed} / {self.passed+self.failed}", "blue")
 
 
 def define_test_cases(path: str) -> TestHarness:

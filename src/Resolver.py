@@ -200,6 +200,9 @@ class Resolver(Visitor):
     def visit_classdecl(self, node: ClassDecl) -> None:
         current_cls = self.cls_context
         self.cls_context = ClassContext.CLASS
+        # Resolve class nodes to allow redefinitions of global classes
+        # This is needed to keep the interpreter and resolver in sync
+        self._resolve(node.name, node, True)
         # Classes are marked as used when defined
         self._define(node.name, True)
 
@@ -231,11 +234,13 @@ class Resolver(Visitor):
     def visit_functiondecl(self, node: FunctionDecl) -> None:
         # Decorating functions must also be resolved
         if node.decorator:
-            self._resolve(node.decorator, node, True)
+            self.visit(node.decorator)
         # Lambdas will not be bound
         if node.name.value != "":
             message = f"Can not redefine function as '{node.name.value}' already exists in current scope."
             self._check_defined(node.name, message)
+            # Resolve function names in case of a global redefinition
+            self._resolve(node.name, node)
             # Functions will be marked as used when defined
             self._define(node.name, True)
 

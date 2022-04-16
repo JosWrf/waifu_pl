@@ -1,0 +1,31 @@
+desu my_decorator(func):
+    baka i <- 0
+    desu wrapper():
+        i <- i + 1
+        print("Something before call" + i)
+        func()
+        print("Something after call" + i)
+    shinu wrapper
+
+@ my_decorator
+desu say_whee():
+    print("Whee!")
+        
+say_whee()
+# expect: Something before call1
+# expect: Whee!
+# expect: Something after call1
+
+desu other_dec(f):
+    desu wrapper(arg):
+        print("Calling f within wrapper.")
+        f(arg)
+    shinu wrapper
+
+@other_dec
+desu g(arg):
+    print(arg)
+
+g("hello world")
+# expect: Calling f within wrapper.
+# expect: hello world

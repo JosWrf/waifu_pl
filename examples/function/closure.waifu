@@ -1,0 +1,32 @@
+weird <- "global"
+desu weird_outer():
+    desu weird_inner():
+        print(weird)
+    
+    weird_inner()
+
+    # assigning w/o baka just changes the value of the global variable
+    weird <- "block"
+
+    weird_inner()
+
+weird_outer() 
+# expect: global
+# expect: block
+
+weird <- "global"
+# It seems like no new scope is built here
+desu weird_outer():
+    desu weird_inner():
+        print(weird)
+    
+    weird_inner()
+    # when using baka then weird should be local and weird_inner resolves to global
+    baka weird <- "block"
+    weird # use it or we get an error
+
+    weird_inner()
+
+weird_outer()
+# expect: global
+# expect: global

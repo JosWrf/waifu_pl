@@ -1,0 +1,11 @@
+waifu yuki:
+    desu shison(name):
+        watashi.name <- name
+
+    desu print_name():
+        print(watashi.name)
+
+yuki("nonaka").print_name() # expect: nonaka
+good <- yuki("name")
+print(good.name) # expect: name
+

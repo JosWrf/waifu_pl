@@ -54,7 +54,7 @@ nodes = {
     "Stmt": {
         "Stmts": [("stmts", "List[Stmt]")],
         "FunctionDecl": [
-            ("decorator", "Token"),
+            ("decorator", "VarAccess"),
             ("name", "Token"),
             ("params", "List[Token]"),
             ("body", "List[Stmt]"),

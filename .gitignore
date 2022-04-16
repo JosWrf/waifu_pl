@@ -153,6 +153,3 @@ cython_debug/
 
 # vscode
 .vscode
-
-# waifu test files
-*.waifu

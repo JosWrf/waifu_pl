@@ -1,0 +1,13 @@
+waifu yuki:
+
+    desu shison():
+        print("yukis first appearance")
+
+yuki() # expect: yukis first appearance
+    
+waifu yuki:
+
+    desu shison():
+        print("yukis second appearance")
+
+yuki() # expect: yukis second appearance
