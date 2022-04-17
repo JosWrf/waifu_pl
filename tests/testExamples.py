@@ -7,8 +7,9 @@ from termcolor import colored, cprint
 
 
 class Patterns:
+    # TODO: Handle expected_error case later
     expected_ouput = re.compile("# expect: (.*)")
-    expected_error = re.compile("")
+    expected_error = re.compile("# Error: (\[Line [0-9]*\] .*)")
 
 
 class TestResult:

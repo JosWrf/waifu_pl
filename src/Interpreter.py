@@ -36,6 +36,7 @@ from src.errors import (
     ReturnException,
     RuntimeException,
 )
+from src.module import Module
 from src.stdlib.stdlib import CallableObj
 from src.visitor import Visitor
 
@@ -146,11 +147,17 @@ class WaifuClass(WaifuObject, CallableObj):
 
 class Interpreter(Visitor):
     def __init__(
-        self, error_handler: ErrorHandler, resolved_vars: Dict[Expr, int]
+        self,
+        error_handler: ErrorHandler,
+        resolved_vars: Dict[Expr, int],
+        module: Module,
     ) -> None:
         super().__init__()
         self.error_handler = error_handler
-        self.environment = Environment()
+        self.module = module
+        self.environment = (
+            module.scope
+        )  # top-level scope of each module is aliased in the interpreter
         self.resolved_vars = resolved_vars
         self._load_stdlib("src.stdlib.stdlib")
 
