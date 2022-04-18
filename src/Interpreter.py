@@ -219,12 +219,11 @@ class Interpreter(Visitor):
             self._report_runtime_err(re)
 
     def _export(self) -> None:
-        """This does not work as the environment does not store any names."""
+        """Moves all identifiers of the imported module to the importing module."""
         for var in self.environment.bindings:
             self.module.exportable_vars.add(var)
 
     def visit_importstmt(self, node: ImportStmt) -> None:
-        # TODO: Work on this - Load runtime values into current scope
         module = self.module.waifu_interpreter.import_module(node.name)
         import_stuff = module.exportable_vars
         for variable in import_stuff:

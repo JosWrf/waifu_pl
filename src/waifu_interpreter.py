@@ -37,7 +37,8 @@ class WaifuInterpreter:
 
     def evaluate_module(self, module: Module) -> None:
         """Called when a new module was loaded. It starts off interpreting
-        the source text of the module."""
+        the source text of the module and pushes the current module on the
+        module stack."""
         self.module_stack.append(module)
 
         self._interpret_module(module)

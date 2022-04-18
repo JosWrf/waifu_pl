@@ -8,6 +8,9 @@ class Environment:
         self.outer = outer
         self.bindings = {}
 
+    def get(self, name: str) -> Any:
+        return self.bindings[name]
+
     def define(self, name: str, value: Any) -> None:
         self.bindings[name] = value
 

@@ -31,4 +31,4 @@ class Module:
         )
 
     def import_name(self, name: str, module: "Module") -> None:
-        self.scope.define(name, module.scope.bindings[name])
+        self.scope.define(name, module.scope.get(name))

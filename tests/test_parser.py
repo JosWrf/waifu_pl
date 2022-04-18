@@ -789,3 +789,11 @@ class TestParser:
         expected = ["x", "z"]
         assert not self.error_handler.error.called
         assert super_names == expected
+
+    def test_simple_module_import(self):
+        self._setup("gaijin ..src.module\n")
+        nodes = self.parser.parse()
+
+        import_stmt = nodes.stmts[0]
+        assert import_stmt.keyword.type == TokenType.IMPORT
+        assert import_stmt.name == "..src.module"
