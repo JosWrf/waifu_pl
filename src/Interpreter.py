@@ -150,7 +150,6 @@ class Interpreter(Visitor):
     def __init__(
         self,
         error_handler: ErrorHandler,
-        resolved_vars: Dict[Expr, int],
         module: Module,
     ) -> None:
         super().__init__()
@@ -159,7 +158,6 @@ class Interpreter(Visitor):
         self.environment = (
             module.scope
         )  # top-level scope of each module is aliased in the interpreter
-        self.resolved_vars = resolved_vars
         self._load_stdlib("src.stdlib.stdlib")
 
     def _load_stdlib(self, mod_name: str):
@@ -287,7 +285,7 @@ class Interpreter(Visitor):
             self.environment.define(node.name.value, func)
 
     def _decorated_function(self, node: FunctionDecl) -> None:
-        index = self.resolved_vars.get(node.decorator)
+        index = self.module.waifu_interpreter.resolved_vars.get(node.decorator)
         if index is None:
             self._report_runtime_err(
                 RuntimeException(
@@ -358,7 +356,7 @@ class Interpreter(Visitor):
         if node.new_var:
             self.environment.define(node.name.value, value)
         else:
-            index = self.resolved_vars.get(node)
+            index = self.module.waifu_interpreter.resolved_vars.get(node)
             if not index is None:
                 self.environment.assign_at(value, index, node.name.value)
             else:
@@ -382,7 +380,7 @@ class Interpreter(Visitor):
         if node.new_var:
             self.environment.define(node.name.value, value)
         else:
-            index = self.resolved_vars.get(node)
+            index = self.module.waifu_interpreter.resolved_vars.get(node)
             if not index is None:
                 self.environment.assign_at(value, index, node.name.value)
             else:
@@ -485,13 +483,13 @@ class Interpreter(Visitor):
         return node.value
 
     def visit_objref(self, node: ObjRef) -> WaifuObject:
-        index = self.resolved_vars.get(node)
+        index = self.module.waifu_interpreter.resolved_vars.get(node)
         return self.environment.get_at_index(index, "watashi")
 
     def visit_superref(self, node: SuperRef) -> WaifuFunc:
         """Acts like a mixture of a getter and this reference."""
         # Obtain the list of super class instances
-        index = self.resolved_vars.get(node)
+        index = self.module.waifu_interpreter.resolved_vars.get(node)
         super_clsses = self.environment.get_at_index(index, "haha")
 
         # Get this from the object where the method referencing super was called;
@@ -513,7 +511,7 @@ class Interpreter(Visitor):
         return method.bind(this)
 
     def visit_varaccess(self, node: VarAccess) -> Any:
-        index = self.resolved_vars.get(node)
+        index = self.module.waifu_interpreter.resolved_vars.get(node)
         if not index is None:
             return self.environment.get_at_index(index, node.name.value)
         # Undefined variable case

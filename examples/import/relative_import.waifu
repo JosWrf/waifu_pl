@@ -1,5 +1,12 @@
 gaijin .imported_stuff
+# expect: Executing imported_stuff.
 
-awesome_function(3)
+print("Printing a: " + a) # expect: Printing a: 17
+awesome_function()
+# expect: 17
+# expect: 17
 
-print(input("Enter shit"))
+a <- A("nice")
+a.print_name()
+# expect: nice
+

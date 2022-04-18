@@ -2,7 +2,7 @@ import enum
 import importlib
 import inspect
 from typing import Any, Dict, Tuple
-from src.Lexer import Token
+from src.Lexer import Token, TokenType
 from src.ast import (
     Assign,
     AssStmt,
@@ -12,7 +12,6 @@ from src.ast import (
     CallExpr,
     ClassDecl,
     ContinueStmt,
-    Expr,
     ExprStmt,
     FunctionDecl,
     GroupingExpr,
@@ -57,9 +56,8 @@ class Resolver(Visitor):
     def __init__(self, error_handler: ErrorHandler, module: Module) -> None:
         super().__init__()
         self.scopes = []
-        self.unused_vars = []
         self.globals = {}
-        self.resolved_vars = {}
+        self.unused_vars = []
         self.error_handler = error_handler
         self.function = Context.OTHER
         self.cls_context = ClassContext.OTHER
@@ -100,12 +98,11 @@ class Resolver(Visitor):
         """Called everytime a block is popped of the scope stack."""
         self.unused_vars += [used[1] for used in scope.values() if not used[0]]
 
-    def resolve(self, node: Stmts) -> Dict[Expr, int]:
+    def resolve(self, node: Stmts) -> None:
         """Entry point for the next pipeline stage after generating the ast."""
         self.visit(node)
         self._check_unused(self.globals)
         self._report_unused()
-        return self.resolved_vars
 
     def _define(self, name: Token, use: bool = False) -> None:
         """Use should only be set to True when defining functions and
@@ -119,17 +116,17 @@ class Resolver(Visitor):
     def _resolve(self, name: Token, node: Any, use=False) -> bool:
         """Assigning to a variable does not do shit if it's not read at some point."""
         for index, scope_table in enumerate(reversed(self.scopes)):
-            if name.value in scope_table.keys():
+            if name.value in scope_table:
                 if use:
                     scope_table[name.value] = (use, name)
-                self.resolved_vars[node] = index
+                self.module.waifu_interpreter.resolved_vars[node] = index
                 return True
         # Needed so that no new variables are defined when resolving
         # would lead to a global variable.
-        if name.value in self.globals.keys():
+        if name.value in self.globals:
             if use:
                 self.globals[name.value] = (use, name)
-            self.resolved_vars[node] = len(self.scopes)
+            self.module.waifu_interpreter.resolved_vars[node] = len(self.scopes)
             return True
         return False
 
@@ -207,7 +204,13 @@ class Resolver(Visitor):
         module = self.module.waifu_interpreter.import_module(node.name)
         import_stuff = module.exportable_vars
         for variable in import_stuff:
-            self.globals[variable] = (False, node.keyword)
+            name = self.globals.get(variable)
+            if not name:  # needed for stdlib
+                # TODO: FIX this bugg!
+                self.globals[variable] = (
+                    False,
+                    Token(variable, node.keyword.line, TokenType.IMPORT),
+                )
 
     def visit_classdecl(self, node: ClassDecl) -> None:
         current_cls = self.cls_context

@@ -1,7 +1,20 @@
-desu awesome_function(n):
-    n <- n + 1
-    yandere n > 1:
-        print(n)
+a <- 17
+desu awesome_function():
+    desu inner():
+        print(a)     
 
-print("I am being executed")
+    inner()
+    baka a <- 2
+    a
+    inner()
+
+print("Executing imported_stuff.") # expect: Executing imported_stuff.
+
+
+waifu A:
+    desu shison(name):
+        watashi.name <- name
+
+    desu print_name():
+        print(watashi.name)
 

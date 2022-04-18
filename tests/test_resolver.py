@@ -5,6 +5,8 @@ from src.Parser import RecursiveDescentParser
 from src.Resolver import Resolver
 
 from src.error_handler import ErrorHandler
+from src.module import Module
+from src.waifu_interpreter import WaifuInterpreter
 
 
 class TestResolver:
@@ -14,8 +16,11 @@ class TestResolver:
         self.parser = RecursiveDescentParser(
             self.lexer.get_tokens(), self.error_handler
         )
-        self.resolver = Resolver(self.error_handler)
-        self.resolved_vars = self.resolver.resolve(self.parser.parse())
+        self.resolver = Resolver(
+            self.error_handler,
+            Module("", None, WaifuInterpreter(None, self.error_handler)),
+        )
+        self.resolver.resolve(self.parser.parse())
 
     def test_return_error(self):
         self._setup("shinu 1\n")
@@ -23,22 +28,20 @@ class TestResolver:
 
     def test_resolved_vars(self):
         self._setup("i <- 10\ni\n")
-        assert len(self.resolved_vars) == 1
-        # I should be in the global scope thus (0,*)
-        # Accessing the column index is kinda tough becasue we load the stdlib
-        assert list(*self.resolved_vars.values())[0] == 0
+        assert len(self.resolver.module.waifu_interpreter.resolved_vars) == 1
+
+        assert (
+            list(self.resolver.module.waifu_interpreter.resolved_vars.values())[0] == 0
+        )
         assert not self.error_handler.error.called
 
         self._setup("desu f(a):\n  desu g(b):\n    a<-b\n  g(a)\n  shinu a\nf(12)\n")
-        assert len(self.resolved_vars) == 6
-        # Remove call to f since it's in globals we only know its (0,*)
+
         resolved_indices = [
-            indices
-            for key, indices in self.resolved_vars.items()
-            if key.name.value not in self.resolver.globals
+            (key.name.value, index)
+            for key, index in self.resolver.module.waifu_interpreter.resolved_vars.items()
         ]
-        # First b is resolved which is the first element in the scope of g()'s body
-        expected = [(0, 0), (1, 0), (0, 1), (0, 0), (0, 0)]
+        expected = [("b", 0), ("a", 1), ("g", 0), ("a", 0), ("a", 0), ("f", 0)]
         assert expected == resolved_indices
         assert not self.error_handler.error.called
 
@@ -73,8 +76,10 @@ class TestResolver:
         # Class y is defined in global scope
         assert self.resolver.globals["y"]
         # watashi is resolved to scope surrounding f()'s body
-        this_ref = list(self.resolved_vars.values())[0]
-        assert this_ref == (1, 0)
+        this_ref = list(self.resolver.module.waifu_interpreter.resolved_vars.values())[
+            0
+        ]
+        assert this_ref == 1
 
     def test_supercls_declaration(self):
         self._setup(
@@ -86,11 +91,16 @@ class TestResolver:
         assert self.resolver.globals["x"]
         assert self.resolver.globals["y"]
 
-        resolved = list(self.resolved_vars.values())
+        resolved = [
+            (key.name.value, index)
+            for key, index in self.resolver.module.waifu_interpreter.resolved_vars.items()
+        ]
         # x is resolved to global scope
-        assert resolved[0][0] == 0
         # haha is resolved to scope surrounding this-scope and method body scope
-        assert resolved[1] == (2, 0)
+        # G is stored in the same superref node as haha so both resolve to the same scope
+        expected = [("x", 0), ("g", 2)]
+
+        assert resolved == expected
 
     def test_this_error(self):
         # Watashi may only be called in classes

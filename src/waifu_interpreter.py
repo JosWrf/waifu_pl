@@ -15,6 +15,7 @@ class WaifuInterpreter:
         self.err = False
         self.error_handler = error_handler
         self.error_handler.registerObserver(self)
+        self.resolved_vars = {}  # Holds all the resolved ast nodes
         self.loaded_modules = {}  # Dictionary of all loaded modules
         self.module_stack = []  # Top level module is currently executed
 
@@ -59,10 +60,10 @@ class WaifuInterpreter:
         if self.err:
             sys.exit(-1)
         resolver = Resolver(self.error_handler, module)
-        resolved_vars = resolver.resolve(ast)
+        resolver.resolve(ast)
         if self.err:
             sys.exit(-1)
-        interpreter = Interpreter(self.error_handler, resolved_vars, module)
+        interpreter = Interpreter(self.error_handler, module)
         interpreter.interpret(ast)
 
     def import_module(self, module_path: str) -> Module:
