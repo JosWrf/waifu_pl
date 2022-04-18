@@ -89,6 +89,12 @@ class Stmts(Stmt):
         self.stmts = stmts
 
 
+class ImportStmt(Stmt):
+    def __init__(self, keyword: Token, name: str) -> None:
+        self.keyword = keyword
+        self.name = name
+
+
 class FunctionDecl(Stmt):
     def __init__(
         self,

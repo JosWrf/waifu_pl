@@ -15,6 +15,7 @@ from src.ast import (
     FunctionDecl,
     GroupingExpr,
     IfStmt,
+    ImportStmt,
     Literal,
     ObjRef,
     PropertyAccess,
@@ -110,6 +111,7 @@ class RecursiveDescentParser(Parser):
             if sync_token.type == TokenType.NEWLINE:
                 return
             elif self.is_type_in(
+                TokenType.IMPORT,
                 TokenType.DEF,
                 TokenType.WHILE,
                 TokenType.IF,
@@ -123,9 +125,38 @@ class RecursiveDescentParser(Parser):
 
     def parse(self) -> Any:
         stmts = []
+        while self.is_type_in(TokenType.IMPORT):
+            stmts.append(self._import())
         while not self.is_eof():
             stmts.append(self._declaration())
         return Stmts(stmts)
+
+    def _import(self) -> ImportStmt:
+        try:
+            import_tok = self.advance()
+            name = self._qualified_name()
+            self.match(TokenType.NEWLINE, "Expect newline after import statement.")
+            return ImportStmt(import_tok, name)
+        except UnexpectedTokenException:
+            self._synchronize()
+
+    def _qualified_name(self) -> str:
+        name = ""
+        while self.is_type_in(TokenType.DOT):
+            self.advance()
+            name += "."
+
+        if not self.is_type_in(TokenType.IDENTIFIER):
+            self._parse_error("Expect identifier after 'gaijin'.")
+        name += self.advance().value
+        while self.is_type_in(TokenType.DOT):
+            self.advance()
+            name += "."
+            if not self.is_type_in(TokenType.IDENTIFIER):
+                self._parse_error("Expect identifier after '.' in module name.")
+            name += self.advance().value
+
+        return name
 
     def _declaration(self) -> Stmt:
         try:

@@ -53,6 +53,7 @@ nodes = {
     },
     "Stmt": {
         "Stmts": [("stmts", "List[Stmt]")],
+        "ImportStmt": [("keyword", "Token"), ("name", "str")],
         "FunctionDecl": [
             ("decorator", "VarAccess"),
             ("name", "Token"),

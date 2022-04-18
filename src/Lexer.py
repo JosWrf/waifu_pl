@@ -55,6 +55,7 @@ class TokenType(Enum):
     STATIC = enum.auto()
     EXTENDS = enum.auto()
     SUPER = enum.auto()
+    IMPORT = enum.auto()
 
     EOF = enum.auto()
 
@@ -107,6 +108,7 @@ class Lexer:
         "oppai": TokenType.STATIC,
         "neesan": TokenType.EXTENDS,
         "haha": TokenType.SUPER,
+        "gaijin": TokenType.IMPORT,
     }
 
     simple_tokens = {

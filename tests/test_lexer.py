@@ -27,6 +27,7 @@ class TestLexer:
             ("oppai", [TokenType.STATIC, TokenType.EOF]),
             ("neesan", [TokenType.EXTENDS, TokenType.EOF]),
             ("haha", [TokenType.SUPER, TokenType.EOF]),
+            ("gaijin", [TokenType.IMPORT, TokenType.EOF]),
         ],
     )
     def test_simple_tokens(self, test_input, expected):
