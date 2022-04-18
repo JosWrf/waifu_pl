@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     try:
         error_handler = ErrorHandler()
-        loader = ModuleLoader(error_handler)
+        loader = ModuleLoader()
         source = loader.read_source(os.path.abspath(path))
         waifu = WaifuInterpreter(loader, error_handler)
         waifu.run(source)

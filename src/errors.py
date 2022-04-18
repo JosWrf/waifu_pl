@@ -6,6 +6,20 @@ class UnexpectedTokenException(Exception):
     pass
 
 
+class ModuleException(RuntimeError):
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self.message = message
+
+
+class ModuleLoaderException(ModuleException):
+    pass
+
+
+class CyclicDependencyException(ModuleException):
+    pass
+
+
 class RuntimeException(RuntimeError):
     def __init__(self, token: Token, message: str) -> None:
         super().__init__()

@@ -4,6 +4,7 @@ from src.Lexer import Lexer
 from src.Parser import RecursiveDescentParser
 from src.Resolver import Resolver
 from src.error_handler import ErrorHandler
+from src.errors import CyclicDependencyException
 from src.module import Module, SourceFile
 from src.module_loader import ModuleLoader
 from pathlib import Path
@@ -39,7 +40,6 @@ class WaifuInterpreter:
         the source text of the module."""
         self.module_stack.append(module)
 
-        # Could copy common stuff for each module into the scope of the module
         self._interpret_module(module)
 
         self.module_stack.pop()
@@ -49,7 +49,7 @@ class WaifuInterpreter:
 
     def _interpret_module(self, module: Module) -> None:
         """Starts the entire compiler pipeline from the lexer all the way to the
-        interpreter (tree walk interpreter) for the given module. If the evaluating
+        interpreter (tree walk interpreter) for the given module. If evaluating
         the current module's text fails, then we just stop the entire process."""
         lexer = Lexer(module.sourcefile.text, self.error_handler)
         tokens = lexer.get_tokens()
@@ -72,9 +72,9 @@ class WaifuInterpreter:
         # 2. Check for cyclic dependencies
         for module in self.module_stack:
             if module.name == name:
-                self.error_handler.error(
-                    f"Cyclic dependency between modules {module.name} and {name}.", True
-                )
+                raise CyclicDependencyException(
+                    f"Cyclic dependency between modules {module.name} and {name}."
+                )  # error is caught by the resolver
         # 3. Look whether module was already loaded
         module = self.loaded_modules.get(name)
         if module:

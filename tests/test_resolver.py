@@ -6,6 +6,7 @@ from src.Resolver import Resolver
 
 from src.error_handler import ErrorHandler
 from src.module import Module
+from src.module_loader import ModuleLoader
 from src.waifu_interpreter import WaifuInterpreter
 
 
@@ -18,7 +19,7 @@ class TestResolver:
         )
         self.resolver = Resolver(
             self.error_handler,
-            Module("", None, WaifuInterpreter(None, self.error_handler)),
+            Module("", None, WaifuInterpreter(ModuleLoader(), self.error_handler)),
         )
         self.resolver.resolve(self.parser.parse())
 

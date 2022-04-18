@@ -31,6 +31,7 @@ from src.ast import (
     WhileStmt,
 )
 from src.error_handler import ErrorHandler
+from src.errors import ModuleException
 from src.module import Module
 from src.visitor import Visitor
 
@@ -73,9 +74,11 @@ class Resolver(Visitor):
         ):
             self.globals[name.lower()] = (True, None)
 
-    def _semantic_error(self, err_token: Token, message: str):
+    def _semantic_error(
+        self, err_token: Token, message: str, throw: bool = False
+    ) -> None:
         message = f"Line[{err_token.line}]: {message}"
-        self.error_handler.error(message)
+        self.error_handler.error(message, throw)
 
     def _check_defined(self, name: Token, message: str) -> None:
         """Called when baka is in front of assignment statements or assigns.
@@ -199,18 +202,19 @@ class Resolver(Visitor):
         """Imports should be statically resolved, such that the module's own variables can
         also be resolved in a correct way. If we were to resolve and then import, there'd be
         no way of statically resolving."""
-        # TODO: Meditate on this - add names to current scope which must be the global scope
         # Just load the names of the exported variables in the global scope
-        module = self.module.waifu_interpreter.import_module(node.name)
-        import_stuff = module.exportable_vars
-        for variable in import_stuff:
-            name = self.globals.get(variable)
-            if not name:  # needed for stdlib
-                # TODO: FIX this bugg!
-                self.globals[variable] = (
-                    False,
-                    Token(variable, node.keyword.line, TokenType.IMPORT),
-                )
+        try:
+            module = self.module.waifu_interpreter.import_module(node.name)
+            import_stuff = module.exportable_vars
+            for variable in import_stuff:
+                name = self.globals.get(variable)
+                if not name:  # needed for stdlib
+                    self.globals[variable] = (
+                        False,
+                        Token(variable, node.keyword.line, TokenType.IMPORT),
+                    )
+        except ModuleException as ml:
+            self._semantic_error(node.keyword, ml.message, True)
 
     def visit_classdecl(self, node: ClassDecl) -> None:
         current_cls = self.cls_context

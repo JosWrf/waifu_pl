@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from typing import Any, Dict, List
+from typing import Any, List
 from src.Lexer import Token, TokenType
 from src.ast import (
     AssStmt,
@@ -199,9 +199,7 @@ class Interpreter(Visitor):
             raise RuntimeException(operator, f"Can not divide by zero.")
 
     def _report_runtime_err(self, exception: RuntimeException) -> None:
-        message = (
-            f"{self.module.name} Line[{exception.token.line}]: {exception.message}"
-        )
+        message = f"Line[{exception.token.line}]: {exception.message}"
         self.error_handler.error(message, True)
 
     def _make_waifuish(self, value: Any) -> str:
