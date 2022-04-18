@@ -17,6 +17,7 @@ from src.ast import (
     FunctionDecl,
     GroupingExpr,
     IfStmt,
+    ImportStmt,
     Literal,
     LogicalExpr,
     ObjRef,
@@ -31,6 +32,7 @@ from src.ast import (
     WhileStmt,
 )
 from src.error_handler import ErrorHandler
+from src.module import Module
 from src.visitor import Visitor
 
 
@@ -52,7 +54,7 @@ class Resolver(Visitor):
     assignments we must check whether we define a variable or have to
     resolve."""
 
-    def __init__(self, error_handler: ErrorHandler) -> None:
+    def __init__(self, error_handler: ErrorHandler, module: Module) -> None:
         super().__init__()
         self.scopes = []
         self.unused_vars = []
@@ -61,6 +63,7 @@ class Resolver(Visitor):
         self.error_handler = error_handler
         self.function = Context.OTHER
         self.cls_context = ClassContext.OTHER
+        self.module = module  # needed to preload the names of the imported module
         self._load_stdlib("src.stdlib.stdlib")
 
     def _load_stdlib(self, mod_name: str):
@@ -97,7 +100,7 @@ class Resolver(Visitor):
         """Called everytime a block is popped of the scope stack."""
         self.unused_vars += [used[1] for used in scope.values() if not used[0]]
 
-    def resolve(self, node: Stmts) -> Dict[Expr, Tuple[int, int]]:
+    def resolve(self, node: Stmts) -> Dict[Expr, int]:
         """Entry point for the next pipeline stage after generating the ast."""
         self.visit(node)
         self._check_unused(self.globals)
@@ -116,20 +119,18 @@ class Resolver(Visitor):
     def _resolve(self, name: Token, node: Any, use=False) -> bool:
         """Assigning to a variable does not do shit if it's not read at some point."""
         for index, scope_table in enumerate(reversed(self.scopes)):
-            for column, key in enumerate(scope_table):
-                if key == name.value:
-                    if use:
-                        scope_table[name.value] = (use, name)
-                    self.resolved_vars[node] = (index, column)
-                    return True
+            if name.value in scope_table.keys():
+                if use:
+                    scope_table[name.value] = (use, name)
+                self.resolved_vars[node] = index
+                return True
         # Needed so that no new variables are defined when resolving
         # would lead to a global variable.
-        for column, key in enumerate(self.globals):
-            if key == name.value:
-                if use:
-                    self.globals[name.value] = (use, name)
-                self.resolved_vars[node] = (len(self.scopes), column)
-                return True
+        if name.value in self.globals.keys():
+            if use:
+                self.globals[name.value] = (use, name)
+            self.resolved_vars[node] = len(self.scopes)
+            return True
         return False
 
     def visit_assign(self, node: Assign) -> None:
@@ -197,12 +198,20 @@ class Resolver(Visitor):
         for stmt in node.stmts:
             self.visit(stmt)
 
+    def visit_importstmt(self, node: ImportStmt) -> None:
+        """Imports should be statically resolved, such that the module's own variables can
+        also be resolved in a correct way. If we were to resolve and then import, there'd be
+        no way of statically resolving."""
+        # TODO: Meditate on this - add names to current scope which must be the global scope
+        # Just load the names of the exported variables in the global scope
+        module = self.module.waifu_interpreter.import_module(node.name)
+        import_stuff = module.exportable_vars
+        for variable in import_stuff:
+            self.globals[variable] = (False, node.keyword)
+
     def visit_classdecl(self, node: ClassDecl) -> None:
         current_cls = self.cls_context
         self.cls_context = ClassContext.CLASS
-        # Resolve class nodes to allow redefinitions of global classes
-        # This is needed to keep the interpreter and resolver in sync
-        self._resolve(node.name, node, True)
         # Classes are marked as used when defined
         self._define(node.name, True)
 
@@ -239,8 +248,6 @@ class Resolver(Visitor):
         if node.name.value != "":
             message = f"Can not redefine function as '{node.name.value}' already exists in current scope."
             self._check_defined(node.name, message)
-            # Resolve function names in case of a global redefinition
-            self._resolve(node.name, node)
             # Functions will be marked as used when defined
             self._define(node.name, True)
 

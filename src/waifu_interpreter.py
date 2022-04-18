@@ -58,9 +58,32 @@ class WaifuInterpreter:
         ast = parser.parse()
         if self.err:
             sys.exit(-1)
-        resolver = Resolver(self.error_handler)
+        resolver = Resolver(self.error_handler, module)
         resolved_vars = resolver.resolve(ast)
         if self.err:
             sys.exit(-1)
         interpreter = Interpreter(self.error_handler, resolved_vars, module)
         interpreter.interpret(ast)
+
+    def import_module(self, module_path: str) -> Module:
+        # 1. Build module name
+        name = module_path.split(".")[-1]
+        # 2. Check for cyclic dependencies
+        for module in self.module_stack:
+            if module.name == name:
+                self.error_handler.error(
+                    f"Cyclic dependency between modules {module.name} and {name}.", True
+                )
+        # 3. Look whether module was already loaded
+        module = self.loaded_modules.get(name)
+        if module:
+            return module
+        # 4. New modules have to be loaded and evaluated
+        source_file = self.loader.load_module(
+            module_path, self.module_stack[-1].sourcefile.path
+        )
+        module = Module(name, source_file, self)
+        self.loaded_modules[name] = module
+        self.evaluate_module(module)
+
+        return module

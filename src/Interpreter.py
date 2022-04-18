@@ -16,6 +16,7 @@ from src.ast import (
     FunctionDecl,
     GroupingExpr,
     IfStmt,
+    ImportStmt,
     Literal,
     LogicalExpr,
     ObjRef,
@@ -53,13 +54,13 @@ class WaifuFunc(CallableObj):
 
     def bind(self, obj: "WaifuObject"):
         this_env = Environment(self.closure)
-        this_env.define(obj)
+        this_env.define("watashi", obj)
         return WaifuFunc(self.node, this_env)
 
     def call(self, interpreter: "Interpreter", args: List[Any]) -> Any:
         environment = Environment(self.closure)
-        for arg in args:
-            environment.define(arg)
+        for param, arg in zip(self.node.params, args):
+            environment.define(param.value, arg)
         try:
             interpreter._execute_block(self.node.body, environment)
         except ReturnException as re:
@@ -169,7 +170,7 @@ class Interpreter(Visitor):
             module,
             lambda member: inspect.isclass(member) and member.__module__ == mod_name,
         ):
-            self.environment.define(obj())
+            self.environment.define(name.lower(), obj())
 
     def _boolean_eval(self, operand: Any) -> bool:
         """Implements evaluation of boolean expressions similar to lua."""
@@ -200,7 +201,9 @@ class Interpreter(Visitor):
             raise RuntimeException(operator, f"Can not divide by zero.")
 
     def _report_runtime_err(self, exception: RuntimeException) -> None:
-        message = f"Line[{exception.token.line}]: {exception.message}"
+        message = (
+            f"{self.module.name} Line[{exception.token.line}]: {exception.message}"
+        )
         self.error_handler.error(message, True)
 
     def _make_waifuish(self, value: Any) -> str:
@@ -215,8 +218,21 @@ class Interpreter(Visitor):
     def interpret(self, node: Any) -> Any:
         try:
             self.visit(node)
+            self._export()
         except RuntimeException as re:
             self._report_runtime_err(re)
+
+    def _export(self) -> None:
+        """This does not work as the environment does not store any names."""
+        for var in self.environment.bindings:
+            self.module.exportable_vars.add(var)
+
+    def visit_importstmt(self, node: ImportStmt) -> None:
+        # TODO: Work on this - Load runtime values into current scope
+        module = self.module.waifu_interpreter.import_module(node.name)
+        import_stuff = module.exportable_vars
+        for variable in import_stuff:
+            self.module.import_name(variable, module)
 
     def visit_classdecl(self, node: ClassDecl) -> None:
         supercls = None
@@ -241,13 +257,13 @@ class Interpreter(Visitor):
             None,
         )
         cls = WaifuClass(node.name.value, supercls, meta_cls)
-        self.environment.define_resolved(cls, self.resolved_vars.get(node))
+        self.environment.define(node.name.value, cls)
 
         environment = self.environment
         if node.supercls:
             environment = Environment(environment)
             # Bind list of super classes in the methods enclosing environment
-            environment.define(supercls)
+            environment.define("haha", supercls)
 
         for method in node.methods:
             (meta_cls if method.static else cls).add_method(
@@ -268,18 +284,18 @@ class Interpreter(Visitor):
         if node.decorator:
             self._decorated_function(node)
         else:
-            self.environment.define_resolved(func, self.resolved_vars.get(node))
+            self.environment.define(node.name.value, func)
 
     def _decorated_function(self, node: FunctionDecl) -> None:
-        indices = self.resolved_vars.get(node.decorator)
-        if indices is None:
+        index = self.resolved_vars.get(node.decorator)
+        if index is None:
             self._report_runtime_err(
                 RuntimeException(
                     node.decorator.name,
                     f"Decorating function '{node.decorator.name.value}' does not exist.",
                 )
             )
-        dec_func = self.environment.get_at_index(indices[0], indices[1])
+        dec_func = self.environment.get_at_index(index, node.decorator.name.value)
         if not type(dec_func) is WaifuFunc:
             self._report_runtime_err(
                 RuntimeException(node.name, "Can only use a function as a decorator.")
@@ -294,7 +310,7 @@ class Interpreter(Visitor):
         # Wrapper function stores function object in its closure
         wrapper = dec_func.call(self, [WaifuFunc(node, self.environment)])
 
-        self.environment.define_resolved(wrapper, self.resolved_vars.get(node))
+        self.environment.define(node.name.value, wrapper)
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:
@@ -340,13 +356,13 @@ class Interpreter(Visitor):
     def visit_assstmt(self, node: AssStmt) -> None:
         value = self.visit(node.expression)
         if node.new_var:
-            self.environment.define(value)
+            self.environment.define(node.name.value, value)
         else:
-            indices = self.resolved_vars.get(node)
-            if not indices is None:
-                self.environment.assign_at(value, indices[0], indices[1])
+            index = self.resolved_vars.get(node)
+            if not index is None:
+                self.environment.assign_at(value, index, node.name.value)
             else:
-                self.environment.define(value)
+                self.environment.define(node.name.value, value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
         self.visit(node.expression)
@@ -364,13 +380,13 @@ class Interpreter(Visitor):
     def visit_assign(self, node: Assign) -> Any:
         value = self.visit(node.expression)
         if node.new_var:
-            self.environment.define(value)
+            self.environment.define(node.name.value, value)
         else:
-            indices = self.resolved_vars.get(node)
-            if not indices is None:
-                self.environment.assign_at(value, indices[0], indices[1])
+            index = self.resolved_vars.get(node)
+            if not index is None:
+                self.environment.assign_at(value, index, node.name.value)
             else:
-                self.environment.define(value)
+                self.environment.define(node.name.value, value)
         return value
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
@@ -469,18 +485,18 @@ class Interpreter(Visitor):
         return node.value
 
     def visit_objref(self, node: ObjRef) -> WaifuObject:
-        indices = self.resolved_vars.get(node)
-        return self.environment.get_at_index(indices[0], indices[1])
+        index = self.resolved_vars.get(node)
+        return self.environment.get_at_index(index, "watashi")
 
     def visit_superref(self, node: SuperRef) -> WaifuFunc:
         """Acts like a mixture of a getter and this reference."""
         # Obtain the list of super class instances
-        indices = self.resolved_vars.get(node)
-        super_clsses = self.environment.get_at_index(indices[0], indices[1])
+        index = self.resolved_vars.get(node)
+        super_clsses = self.environment.get_at_index(index, "haha")
 
         # Get this from the object where the method referencing super was called;
         # it's right between super and the scope of the method body
-        this = self.environment.get_at_index(indices[0] - 1, indices[1])
+        this = self.environment.get_at_index(index - 1, "watashi")
 
         for super_cls in super_clsses:
             method = super_cls.get_method(node.name)
@@ -497,9 +513,9 @@ class Interpreter(Visitor):
         return method.bind(this)
 
     def visit_varaccess(self, node: VarAccess) -> Any:
-        indices = self.resolved_vars.get(node)
-        if not indices is None:
-            return self.environment.get_at_index(indices[0], indices[1])
+        index = self.resolved_vars.get(node)
+        if not index is None:
+            return self.environment.get_at_index(index, node.name.value)
         # Undefined variable case
         self._report_runtime_err(
             RuntimeException(node.name, f"Undefined variable '{node.name.value}'.")

@@ -1,0 +1,7 @@
+desu awesome_function(n):
+    n <- n + 1
+    yandere n > 1:
+        print(n)
+
+print("I am being executed")
+

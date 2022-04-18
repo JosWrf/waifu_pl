@@ -22,7 +22,7 @@ class ModuleLoader:
                 abs_path = self._relative_import(module_path, current_module_path)
             else:
                 abs_path = self._relative_to_cwd(module_path)
-            self.read_source(abs_path)
+            return self.read_source(abs_path)
         except OSError:
             self.error_handler.error(
                 f"Import error: Could not load '{module_path}' from {current_module_path}",

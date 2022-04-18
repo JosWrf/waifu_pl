@@ -1,3 +1,4 @@
+import os
 import sys
 
 from src.module_loader import ModuleLoader
@@ -15,7 +16,7 @@ if __name__ == "__main__":
     try:
         error_handler = ErrorHandler()
         loader = ModuleLoader(error_handler)
-        source = loader.read_source(path)
+        source = loader.read_source(os.path.abspath(path))
         waifu = WaifuInterpreter(loader, error_handler)
         waifu.run(source)
 

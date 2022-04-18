@@ -30,5 +30,5 @@ class Module:
             waifu  # this is later needed by the tree-walk-interpreter
         )
 
-    def add_to_exported(self, identifier: str) -> None:
-        self.exportable_vars.add(identifier)
+    def import_name(self, name: str, module: "Module") -> None:
+        self.scope.define(name, module.scope.bindings[name])
