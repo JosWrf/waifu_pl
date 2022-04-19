@@ -1,0 +1,11 @@
+print(2 and 24 or 42) # expect: 24
+
+print(2 = 3 or "one" = "two") # expect: false
+
+print(false or false and true) # expect: false
+
+print(false and false or true) # expect: true
+
+print(true and "nice") # expect: nice
+
+print(true or "nice") # expect: true

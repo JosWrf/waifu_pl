@@ -21,4 +21,4 @@ if __name__ == "__main__":
         waifu.run(source)
 
     except OSError:
-        print(f"Could not load file at {path}.")
+        print(f"Could not load file at path: '{os.path.abspath(path)}'.")

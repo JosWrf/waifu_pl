@@ -1,0 +1,9 @@
+print(baito) # expect: baito
+
+print(1.23) # expect: 1.23
+
+print(12.) # expect: 12
+
+print(0.12) # expect: 0.12
+
+print("f") # expect: f

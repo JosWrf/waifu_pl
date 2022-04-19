@@ -20,6 +20,9 @@ class WaifuInterpreter:
         self.loaded_modules = {}  # Dictionary of all loaded modules
         self.module_stack = []  # Top level module is currently executed
 
+    def get_current_module_path(self) -> str:
+        return self.module_stack[-1].sourcefile.path
+
     def update(self) -> None:
         """Called from the error_handler subject error method."""
         runtime_err = self.error_handler.runtime_err

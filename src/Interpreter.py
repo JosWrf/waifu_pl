@@ -204,6 +204,10 @@ class Interpreter(Visitor):
 
     def _make_waifuish(self, value: Any) -> str:
         """Converts python representation of a waifu value to the waifu representation."""
+        if value is False:
+            return "false"
+        if value is True:
+            return "true"
         if value != 0 and not value:
             return "baito"
         if type(value) is float:
@@ -422,7 +426,7 @@ class Interpreter(Visitor):
 
     def visit_logicalexpr(self, node: LogicalExpr) -> Any:
         left = self.visit(node.left)
-        if node.operator == TokenType.OR:
+        if node.operator.type == TokenType.OR:
             if self._boolean_eval(left):
                 return left
         else:
@@ -468,7 +472,14 @@ class Interpreter(Visitor):
             )
 
         property = obj.get(node.name)
-        if type(property) is WaifuFunc:
+        # only bind watashi in methods not in functions and lambdas
+        if type(property) is WaifuFunc and property.node.name.value != "":
+            func_name = property.node.name.value
+            # Only functions have their names in a surrounding scope
+            # Thus if we find a name it must be a function not a method
+            if property.closure.search_name(func_name):
+                return property
+
             return property.bind(obj)
 
         return property

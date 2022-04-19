@@ -175,11 +175,12 @@ class TestHarness:
             passed, failed = suite.run_tests()
             self.failed += failed
             self.passed += passed
-            if self.failed == 0:
+            if failed == 0:
                 self.suites_passed += 1
         self.report_suite_summary()
 
     def report_suite_summary(self) -> None:
+        # TODO: Fix bugg where suites passed is not calced correct
         cprint(
             f"Suites passed total: {self.suites_passed} / {len(self.suites)}", "blue"
         )

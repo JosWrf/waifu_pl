@@ -11,6 +11,13 @@ class Environment:
     def get(self, name: str) -> Any:
         return self.bindings[name]
 
+    def search_name(self, name: str) -> bool:
+        if name in self.bindings:
+            return True
+        if self.outer:
+            return self.outer.search_name(name)
+        return False
+
     def define(self, name: str, value: Any) -> None:
         self.bindings[name] = value
 

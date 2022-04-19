@@ -1,0 +1,12 @@
+gaijin ..classes.classmethods
+
+# expect: onee san
+# expect: ni san
+# expect: onee san
+
+yuki.nee_san() # expect: onee san
+
+
+obj <- yuki()
+obj.m <- ? x: print(x)
+obj.m("sheesh") # expect: sheesh

@@ -1,3 +1,4 @@
+import sys
 from typing import Any
 
 
@@ -19,6 +20,8 @@ class ErrorHandler:
         self.observer.update()
 
     def error(self, message: str, runtime_err: bool = False) -> None:
+        module_path = self.observer.get_current_module_path()
+        message = "In module " + module_path + " " + message
         self._runtime_err = runtime_err
-        print(message)
+        print(message, file=sys.stderr)
         self.notifyObserver()

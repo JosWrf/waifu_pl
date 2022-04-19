@@ -1,0 +1,5 @@
+print(-12) # expect: -12
+
+print(not true) # expect: false
+
+print(--1) # expect: 1
