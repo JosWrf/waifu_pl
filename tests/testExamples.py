@@ -7,9 +7,9 @@ from termcolor import colored, cprint
 
 
 class Patterns:
-    # TODO: Handle expected_error case later
     expected_ouput = re.compile("# expect: (.*)")
-    expected_error = re.compile("# Error: (\[Line [0-9]*\] .*)")
+    expected_error = re.compile("# Error: (Line\[[0-9]*\]: .*)")
+    error_pattern = re.compile("(In module [^ ]*) (.*)")
 
 
 class TestResult:
@@ -35,6 +35,15 @@ class TestResult:
         self.messages.append(message)
 
 
+class ExpectedOutput:
+    """Stores the line number from parsed test case, which is later used
+    for error reporting."""
+
+    def __init__(self, line: int, output: str) -> None:
+        self.line = line
+        self.output = output
+
+
 class Test:
     """Each file in a subdirectory corresponds to a test."""
 
@@ -56,6 +65,9 @@ class Test:
             if matched:
                 # Group 0 is the entire regex
                 self.expected_output.append(ExpectedOutput(index + 1, matched.group(1)))
+            matched = Patterns.expected_error.search(line.rstrip("\n"))
+            if matched:
+                self.expected_errors.append(ExpectedOutput(index + 1, matched.group(1)))
 
     def read(self) -> List[str]:
         # Trailing newlines do not seem to be an issue
@@ -74,14 +86,19 @@ class Test:
             capture_output=True,
             encoding="utf-8",
         )
-        output = generated_output.stdout.rstrip("\n").split("\n")
 
+        output = [
+            out for out in generated_output.stdout.rstrip("\n").split("\n") if out != ""
+        ]
+        errors = [
+            out for out in generated_output.stderr.rstrip("\n").split("\n") if out != ""
+        ]
         self.compare_expected_output(output)
+        self.compare_expected_errors(errors)
 
         return self.results
 
     def compare_expected_output(self, generated_ouput: List[str]) -> None:
-
         num_expected = 0
         for index, line in enumerate(generated_ouput):
             if index < len(self.expected_output):
@@ -107,14 +124,25 @@ class Test:
             )
             num_expected += 1
 
+    def compare_expected_errors(self, errors: List[str]) -> None:
+        num_expected = 0
+        for index, line in enumerate(errors):
+            if index < len(self.expected_errors):
+                expected = self.expected_errors[index]
+                # TODO: This wont work for the warning emitted by the resolver
+                matched = Patterns.error_pattern.search(line).group(2)
 
-class ExpectedOutput:
-    """Stores the line number from parsed test case, which is later used
-    for error reporting."""
+                if matched != expected.output:
+                    self.results.add_failed(
+                        f"[expected{num_expected}] ",
+                        f"At line {expected.line}: Expected '{expected.output}' but got '{matched}'.",
+                    )
 
-    def __init__(self, line: int, output: str) -> None:
-        self.line = line
-        self.output = output
+            else:
+                self.results.add_failed(
+                    "", f"Superflous output {line} where None was expected."
+                )
+            num_expected += 1
 
 
 class Suite:

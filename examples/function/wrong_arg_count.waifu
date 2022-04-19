@@ -1,0 +1,5 @@
+desu f(a):
+    shinu 2*a
+
+f(1,2)
+# Error: Line[4]: Expected 1 arguments but got 2

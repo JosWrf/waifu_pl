@@ -1,0 +1,6 @@
+nani not baito:
+    baka a <- 5
+    baka a <- 12
+    # Error: Line[3]: Can't use 'baka' cause 'a' is already defined in current scope.
+    a
+    

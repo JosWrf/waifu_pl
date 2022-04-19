@@ -1,0 +1,6 @@
+waifu B:
+    desu shison():
+        haha.shison()
+        watashi.c <- 12
+
+# Error: Line[3]: Can only use 'haha' inside methods of subclasses.

@@ -455,7 +455,7 @@ class Interpreter(Visitor):
             self._report_runtime_err(
                 RuntimeException(
                     node.calltoken,
-                    f"Expected {callee.arity()} arguments but got{len(args)}",
+                    f"Expected {callee.arity()} arguments but got {len(args)}",
                 )
             )
 

@@ -1,0 +1,5 @@
+waifu A:
+    desu shison():
+        watashi.a
+
+# Error: Line[3]: Property 'a' does not exist for <object of <class A>>
