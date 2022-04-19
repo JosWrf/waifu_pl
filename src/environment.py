@@ -1,7 +1,5 @@
 from typing import Any
 
-from src.Lexer import Token
-
 
 class Environment:
     def __init__(self, outer: "Environment" = None) -> None:

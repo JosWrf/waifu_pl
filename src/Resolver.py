@@ -207,12 +207,10 @@ class Resolver(Visitor):
             module = self.module.waifu_interpreter.import_module(node.name)
             import_stuff = module.exportable_vars
             for variable in import_stuff:
-                name = self.globals.get(variable)
-                if not name:  # needed for stdlib
-                    self.globals[variable] = (
-                        False,
-                        Token(variable, node.keyword.line, TokenType.IMPORT),
-                    )
+                self.globals[variable] = (
+                    False,
+                    Token(variable, node.keyword.line, TokenType.IMPORT),
+                )
         except ModuleException as ml:
             self._semantic_error(node.keyword, ml.message, True)
 

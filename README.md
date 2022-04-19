@@ -142,10 +142,12 @@ D.big()
 Every .waifu file will be considered a module.
 Imports have to be at the first statements appearing in a module.
 (I never experienced a case where this would be restrictive, so i will enforce it here.)
-There are two ways modules are searched for.
+There are two ways modules are searched for:
 
 1. If the qualified name starts with '.', then path will be calculated relative with respect to the absolute path of the importing module (currently active module).
 
 2. If the name does not start with '.', then the importing name will be appended to the current working directory.
 
 Note: In both cases .waifu will be added to the calculated name.
+
+All global elements defined within the module will be exported from the imported module. This is to prevent transitive copying.

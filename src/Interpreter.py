@@ -218,14 +218,8 @@ class Interpreter(Visitor):
     def interpret(self, node: Any) -> Any:
         try:
             self.visit(node)
-            self._export()
         except RuntimeException as re:
             self._report_runtime_err(re)
-
-    def _export(self) -> None:
-        """Moves all identifiers of the imported module to the importing module."""
-        for var in self.environment.bindings:
-            self.module.exportable_vars.add(var)
 
     def visit_importstmt(self, node: ImportStmt) -> None:
         module = self.module.waifu_interpreter.import_module(node.name)
@@ -257,6 +251,7 @@ class Interpreter(Visitor):
         )
         cls = WaifuClass(node.name.value, supercls, meta_cls)
         self.environment.define(node.name.value, cls)
+        self.module.export_name(node.name.value)
 
         environment = self.environment
         if node.supercls:
@@ -284,6 +279,7 @@ class Interpreter(Visitor):
             self._decorated_function(node)
         else:
             self.environment.define(node.name.value, func)
+            self.module.export_name(node.name.value)
 
     def _decorated_function(self, node: FunctionDecl) -> None:
         index = self.module.waifu_interpreter.resolved_vars.get(node.decorator)
@@ -310,6 +306,7 @@ class Interpreter(Visitor):
         wrapper = dec_func.call(self, [WaifuFunc(node, self.environment)])
 
         self.environment.define(node.name.value, wrapper)
+        self.module.export_name(node.name.value)
 
     def visit_stmts(self, node: Stmts) -> None:
         for stmt in node.stmts:
@@ -356,12 +353,14 @@ class Interpreter(Visitor):
         value = self.visit(node.expression)
         if node.new_var:
             self.environment.define(node.name.value, value)
+            self.module.export_name(node.name.value)
         else:
             index = self.module.waifu_interpreter.resolved_vars.get(node)
             if not index is None:
                 self.environment.assign_at(value, index, node.name.value)
             else:
                 self.environment.define(node.name.value, value)
+                self.module.export_name(node.name.value)
 
     def visit_exprstmt(self, node: ExprStmt) -> None:
         self.visit(node.expression)
@@ -380,12 +379,14 @@ class Interpreter(Visitor):
         value = self.visit(node.expression)
         if node.new_var:
             self.environment.define(node.name.value, value)
+            self.module.export_name(node.name.value)
         else:
             index = self.module.waifu_interpreter.resolved_vars.get(node)
             if not index is None:
                 self.environment.assign_at(value, index, node.name.value)
             else:
                 self.environment.define(node.name.value, value)
+                self.module.export_name(node.name.value)
         return value
 
     def visit_binaryexpr(self, node: BinaryExpr) -> Any:
