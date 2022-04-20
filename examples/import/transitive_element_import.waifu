@@ -1,0 +1,12 @@
+: .import_elements gaijin a,b
+
+# expect: Executing imported_stuff.
+
+# a is printed in import_elements
+# expect: 17
+
+print(a) # expect: 17
+
+b.print_name() # expect: good
+
+A(42) # Error: Line[12]: Undefined variable 'A'.

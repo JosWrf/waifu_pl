@@ -139,9 +139,7 @@ class Test:
                     )
 
             else:
-                self.results.add_failed(
-                    "", f"Superflous output {line} where None was expected."
-                )
+                self.results.add_failed("", f"Superflous error message {line}")
             num_expected += 1
 
 

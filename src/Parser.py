@@ -125,7 +125,7 @@ class RecursiveDescentParser(Parser):
 
     def parse(self) -> Any:
         stmts = []
-        while self.is_type_in(TokenType.IMPORT):
+        while self.is_type_in(TokenType.IMPORT, TokenType.COLON):
             stmts.append(self._import())
         while not self.is_eof():
             stmts.append(self._declaration())
@@ -135,8 +135,15 @@ class RecursiveDescentParser(Parser):
         try:
             import_tok = self.advance()
             name = self._qualified_name()
+            imported_elements = None
+            if import_tok.type == TokenType.COLON:
+                self.match(
+                    TokenType.IMPORT,
+                    "Expect 'gaijin' in import statement starting with ':'.",
+                )
+                imported_elements = self._imported_elements()
             self.match(TokenType.NEWLINE, "Expect newline after import statement.")
-            return ImportStmt(import_tok, name)
+            return ImportStmt(import_tok, name, imported_elements)
         except UnexpectedTokenException:
             self._synchronize()
 
@@ -157,6 +164,21 @@ class RecursiveDescentParser(Parser):
             name += self.advance().value
 
         return name
+
+    def _imported_elements(self) -> List[Token]:
+        imports = []
+        if not self.is_type_in(TokenType.IDENTIFIER):
+            self._parse_error("Expect identifier after 'gaijin'.")
+        imports.append(self.advance())
+        while self.is_type_in(TokenType.COMMA):
+            self.advance()
+            if self.is_type_in(TokenType.IDENTIFIER):
+                imports.append(self.advance())
+            else:
+                self._parse_error(
+                    "Expect identifier after ',' in import declaration list."
+                )
+        return imports
 
     def _declaration(self) -> Stmt:
         try:

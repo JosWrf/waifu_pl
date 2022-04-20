@@ -224,6 +224,11 @@ class Interpreter(Visitor):
     def visit_importstmt(self, node: ImportStmt) -> None:
         module = self.module.waifu_interpreter.import_module(node.name)
         import_stuff = module.exportable_vars
+        if node.import_names:
+            import_stuff = []
+            for name in node.import_names:
+                import_stuff.append(name.value)
+                self.module.export_name(name.value)
         for variable in import_stuff:
             self.module.import_name(variable, module)
 

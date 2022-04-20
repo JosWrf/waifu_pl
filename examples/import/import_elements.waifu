@@ -1,0 +1,8 @@
+: .imported_stuff gaijin a,A
+
+# expect: Executing imported_stuff.
+
+b <- A("good")
+b
+
+print(a)  # expect: 17

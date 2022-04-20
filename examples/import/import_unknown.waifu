@@ -1,0 +1,5 @@
+: .imported_stuff gaijin b
+
+# expect: Executing imported_stuff.
+# Error: Line[1]: Module c:\Users\sepp4\Desktop\waifu\examples\import\imported_stuff.waifu does not contain 'b'.
+

@@ -90,9 +90,12 @@ class Stmts(Stmt):
 
 
 class ImportStmt(Stmt):
-    def __init__(self, keyword: Token, name: str) -> None:
+    def __init__(
+        self, keyword: Token, name: str, import_names: List[Token] = None
+    ) -> None:
         self.keyword = keyword
         self.name = name
+        self.import_names = import_names
 
 
 class FunctionDecl(Stmt):

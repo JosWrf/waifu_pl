@@ -205,7 +205,19 @@ class Resolver(Visitor):
         # Just load the names of the exported variables in the global scope
         try:
             module = self.module.waifu_interpreter.import_module(node.name)
-            import_stuff = module.exportable_vars
+
+            if node.import_names:
+                import_stuff = []
+                for element in node.import_names:
+                    if element.value in module.exportable_vars:
+                        import_stuff.append(element.value)
+                    else:
+                        message = f"Module {module.sourcefile.path} does not contain '{element.value}'."
+                        self._semantic_error(node.keyword, message, True)
+
+            else:
+                import_stuff = module.exportable_vars
+
             for variable in import_stuff:
                 self.globals[variable] = (
                     False,

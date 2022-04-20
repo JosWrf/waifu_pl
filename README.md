@@ -7,7 +7,8 @@
 
 ```ebnf
 program        → import* declaration* EOF ;
-import         → "gaijin" qualifiedname NEWLINE ;
+import         → "gaijin" qualifiedname NEWLINE
+               | ":" qualifiedname "gaijin" parameters ;
 ```
 
 ### Declarations
@@ -15,11 +16,10 @@ import         → "gaijin" qualifiedname NEWLINE ;
 ```ebnf
 declaration    → funDecl
                | classDecl
-               | varDecl
                | statement ;
 
 funDecl        → decorator? function ;
-classDecl      → "waifu" IDENTIFIER ("neesan" IDENTIFIER ("," IDENTIFIER)*)?
+classDecl      → "waifu" IDENTIFIER ("neesan" parameters)?
                 ":" NEWLINE INDENT function* DEDENT;
 ```
 
@@ -68,8 +68,8 @@ primary        → "true" | "false" | "baito" | "watashi" | "haha" "." IDENTIFIE
                | NUMBER | STRING | IDENTIFIER | "(" expression ");
 
 function       → ("desu" | "oppai") IDENTIFIER "(" parameters? ")" block;
-parameters     → IDENTIFIER ( "," IDENTIFIER* );
-arguments      → expression ( "," expression* );
+parameters     → IDENTIFIER ( "," IDENTIFIER )*;
+arguments      → expression ( "," expression )*;
 decorator      → "@" IDENTIFIER NEWLINE;
 qualifiedname  → ( "." )* IDENTIFIER ( "." IDENTIFIER )*;
 ```
@@ -140,14 +140,21 @@ D.big()
 ### Modules
 
 Every .waifu file will be considered a module.
-Imports have to be at the first statements appearing in a module.
+Imports have to be the first statements appearing in a module.
 (I never experienced a case where this would be restrictive, so i will enforce it here.)
 There are two ways modules are searched for:
 
-1. If the qualified name starts with '.', then path will be calculated relative with respect to the absolute path of the importing module (currently active module).
+1. If the qualified name starts with '.', then the path will be calculated relative to the absolute path of the importing module (currently active module).
 
 2. If the name does not start with '.', then the importing name will be appended to the current working directory.
 
 Note: In both cases .waifu will be added to the calculated name.
 
 All global elements defined within the module will be exported from the imported module. This is to prevent transitive copying.
+When using ':' modulename 'gaijin' to import individual variables, they will also be added to the set of exportable variables for the importing module.
+
+## References
+
+Bob Nystrom's excellent book ["Crafting Interpreters"](https://www.craftinginterpreters.com/)
+
+Language Implementation Patterns

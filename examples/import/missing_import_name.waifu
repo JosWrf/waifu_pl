@@ -1,0 +1,8 @@
+: .imported_stuff gaijin a
+
+# expect: Executing imported_stuff.
+print(a)
+# expect: 17
+b <- A(12)
+# Error: Line[6]: Undefined variable 'A'.
+b
